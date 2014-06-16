@@ -1,6 +1,8 @@
 package stratum
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/birpc/jsonmsg"
@@ -26,6 +28,7 @@ type StratumClient struct {
 	prevDifficulty  uint64
 	difficulty      uint64
 	remoteAddress   string
+	active          bool
 }
 
 func NewStratumClient() *StratumClient {
@@ -50,36 +53,54 @@ func (c *StratumClient) Serve(conn io.ReadWriteCloser) {
 	}()
 }
 
+type List []interface{}
+
 func (c *StratumClient) Subscribe() (err error) {
-	args := []interface{}{}
-	reply := &[]interface{}{}
+	args := List{}
+	reply := &List{}
 	err = c.endpoint.Call("mining.subscribe", args, reply)
 
 	if err != nil {
-		log.Printf("mining.subscribe failed: %v\n", err.Error())
-		return err
+		return errors.New("mining.subscribe failed")
 	}
 
-	log.Printf("%v", reply)
+	data := (List)(*reply)
+
+	c.extraNonce1 = data[1].(string)
+	if c.extraNonce1 == "" {
+		return errors.New("Failed to get nonce1")
+	}
+
+	c.extraNonce2Size = (uint64)(data[2].(float64))
+	if c.extraNonce2Size < 1 {
+		return errors.New("Failed to get nonce2size")
+	}
+
+	c.active = true
+
 	return nil
 }
 
-func (c *StratumClient) Authorize(username, password string) {
+func (c *StratumClient) Authorize(username, password string) error {
 	var authed bool
-	params := []interface{}{username, password}
+	params := List{username, password}
 	err := c.endpoint.Call("mining.authorize", params, &authed)
 	if err != nil {
-		log.Printf("not expected: %v\n", err.Error())
+		return errors.New("Auth failed.")
 	}
-	log.Printf("auth res: %v\n", authed)
+
+	c.authorized = true
+	return nil
 }
 
-func (c *StratumClient) Submit(username, jobId, extranonce2, ntime, nonce string) {
+func (c *StratumClient) Submit(username, jobId, extranonce2, ntime, nonce string) error {
 	var accepted bool
-	params := []interface{}{username, jobId, extranonce2, ntime, nonce}
+	params := List{username, jobId, extranonce2, ntime, nonce}
 	err := c.endpoint.Call("mining.submit", params, &accepted)
 	if err != nil {
-		log.Printf("share rejected: %v\n", err.Error())
+		return errors.New(fmt.Sprintf("share rejected, %s.", err.Error()))
 	}
+
 	log.Printf("share accepted: %v\n", accepted)
+	return nil
 }

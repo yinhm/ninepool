@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"github.com/yinhm/ninepool/stratum"
 	"net"
 	"time"
@@ -21,15 +21,25 @@ func main() {
 	}
 
 	client := stratum.NewClient(conn)
-	fmt.Printf("client started...\n")
+	log.Printf("client started...\n")
 
-	_ = client.Subscribe()
-	client.Authorize("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "x")
+	err = client.Subscribe()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	err = client.Authorize("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "x")
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
 
 	time.Sleep(200 * time.Millisecond)
 
-	client.Submit("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "bf",
+	err = client.Submit("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "bf",
 		"00000001", "504e86ed", "b2957c02")
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
 
 	time.Sleep(500 * time.Millisecond)
 }
