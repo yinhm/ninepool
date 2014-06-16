@@ -3,56 +3,13 @@ package stratum
 import (
 	"github.com/conformal/btcnet"
 	"github.com/conformal/btcutil"
-	"github.com/yinhm/ninepool/birpc"
 	"github.com/tv42/topic"
+	"github.com/yinhm/ninepool/birpc"
 	"log"
 	"time"
 )
 
-type Response struct{}
-
-type SubscribeParamater struct{}
-
-type Detail struct {
-	Func  string
-	Value string
-}
-
-// [[["mining.set_difficulty", "b4b6693b72a50c7116db18d6497cac52"], ["mining.notify", "ae6812eb4cd7735a302a8a9dd95cf71f"]], "08000002", 4]
-type SubscriptionResponse struct {
-	// 2-tuple with name of subscribed notification and subscription ID
-	Details          [1][2]Detail
-	Extranonce1      string
-	Extranonce2_size float64
-}
-
-type AuthParamater struct {
-	Username string
-	Password string
-}
-
-type AuthResponse bool
-
-// job_id - ID of the job. Use this ID while submitting share generated from this job.
-// prevhash - Hash of previous block.
-// coinb1 - Initial part of coinbase transaction.
-// coinb2 - Final part of coinbase transaction.
-// merkle_branch - List of hashes, will be used for calculation of merkle root. This is not a list of all transactions, it only contains prepared hashes of steps of merkle tree algorithm. Please read some materials for understanding how merkle trees calculation works. Unfortunately this example don't have any step hashes included, my bad!
-// version - Bitcoin block version.
-// nbits - Encoded current network difficulty
-// ntime - Current ntime/
-// clean_jobs - When true, server indicates that submitting shares from previous jobs don't have a sense and such shares will be rejected. When this flag is set, miner should also drop all previous jobs, so job_ids can be eventually rotated.
-type Job struct {
-	JobId        string   `json:"job_id"`
-	Prevhash     string   `json:"prev_hash"`
-	Coinb1       string   `json:"coinb1"`
-	Coinb2       string   `json:"coinb2"`
-	MerkleBranch []string `json:"merkle_branch"`
-	Version      string   `json:"version"`
-	Nbits        string   `json:"nbits"`
-	Ntime        string   `json:"ntime"`
-	CleanJobs    bool     `json:"clean_jobs"`
-}
+type List []interface{}
 
 // Stratum client connection context
 type Connection struct {
@@ -84,22 +41,10 @@ func (s *Stratum) close() {
 	close(s.broadcast.Broadcast)
 }
 
-// func (s *Stratum) Message(msg *Incoming, _ *nothing, conn net.Conn) error {
-// 	log.Printf("recv from %v:%#v\n", conn.RemoteAddr, msg)
-
-// 	s.broadcast.Broadcast <- Outgoing{
-// 		Time:    time.Now(),
-// 		From:    msg.From,
-// 		Message: msg.Message,
-// 	}
-// 	return nil
-// }
-
-type Mining struct {
-}
+type Mining struct{}
 
 func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoint) error {
-	*reply = []interface{}{
+	*reply = List{
 		[][]string{
 			{"mining.set_difficulty", "b4b6693b72a50c7116db18d6497cac52"},
 			{"mining.notify", "ae6812eb4cd7735a302a8a9dd95cf71f"},

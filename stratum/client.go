@@ -53,8 +53,6 @@ func (c *StratumClient) Serve(conn io.ReadWriteCloser) {
 	}()
 }
 
-type List []interface{}
-
 func (c *StratumClient) Subscribe() (err error) {
 	args := List{}
 	reply := &List{}
