@@ -23,7 +23,7 @@ func main() {
 	client := stratum.NewClient(conn)
 	fmt.Printf("client started...\n")
 
-	client.Subscribe()
+	_ = client.Subscribe()
 	client.Authorize("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "x")
 
 	time.Sleep(200 * time.Millisecond)

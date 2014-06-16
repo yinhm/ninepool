@@ -3,7 +3,7 @@ package stratum
 import (
 	"github.com/conformal/btcnet"
 	"github.com/conformal/btcutil"
-	"github.com/tv42/birpc"
+	"github.com/yinhm/ninepool/birpc"
 	"github.com/tv42/topic"
 	"log"
 	"time"

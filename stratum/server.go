@@ -2,9 +2,9 @@ package stratum
 
 import (
 	"errors"
-	"github.com/tv42/birpc"
-	"github.com/tv42/birpc/jsonmsg"
 	"github.com/tv42/topic"
+	"github.com/yinhm/ninepool/birpc"
+	"github.com/yinhm/ninepool/birpc/jsonmsg"
 	"io"
 	"log"
 	"net"
@@ -82,23 +82,28 @@ func (s *StratumServer) Connection(e *birpc.Endpoint) (conn *Connection, err err
 	return conn, nil
 }
 
-// Order state codes.
-const (
-	StateInit = iota
-	StateConnected
-	StateBanned
-	StateWorking
-	StatePause
-	StateClosedCannel
-	StateClosedDone
-)
+type Proxy struct {
+	address  string
+	order    *Order
+	upstream *StratumClient
+	miners   *map[*birpc.Endpoint]*Connection
+}
 
-type Order struct {
-	Id       string
-	Hostname string
-	Port     string
-	Username string
-	Password string
-	Status   string
-	Created  int64
+func NewProxy(order *Order) (proxy *Proxy, err error) {
+	conn, err := net.Dial("tcp", order.Address())
+	if err != nil {
+		return nil, err
+	}
+
+	upstream := NewClient(conn)
+	upstream.Subscribe()
+	upstream.Authorize("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "x")
+
+	p := &Proxy{
+		address:  order.Address(),
+		order:    order,
+		upstream: upstream,
+	}
+
+	return p, nil
 }
