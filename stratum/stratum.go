@@ -82,8 +82,15 @@ func (m *Mining) notify(e *birpc.Endpoint) {
 	e.Notify(&msg)
 }
 
+// mining.notify notification from upstream
 func (m *Mining) Notify(req *interface{}, reply *interface{}) error {
 	log.Printf("mining.Notify\n")
+	return nil
+}
+
+// mining.set_difficulty notification from upstream
+func (m *Mining) Set_difficulty(req *interface{}, reply *interface{}) error {
+	log.Printf("mining.set_difficulty\n")
 	return nil
 }
 

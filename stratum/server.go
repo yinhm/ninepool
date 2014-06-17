@@ -32,6 +32,7 @@ func NewServer(ln net.Listener) {
 type StratumServer struct {
 	*Stratum
 	connections map[*birpc.Endpoint]*Connection
+	orders map[uint64]*Order
 }
 
 func NewStratumServer() *StratumServer {
@@ -96,8 +97,15 @@ func NewProxy(order *Order) (proxy *Proxy, err error) {
 	}
 
 	upstream := NewClient(conn)
-	upstream.Subscribe()
-	upstream.Authorize("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "x")
+	err = upstream.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+
+	err = upstream.Authorize("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "x")
+	if err != nil {
+		return nil, err
+	}
 
 	p := &Proxy{
 		address:  order.Address(),
