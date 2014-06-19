@@ -21,7 +21,7 @@ type codec struct {
 // can embed birpc.Message and just override the two fields I need to
 // change.
 type jsonMessage struct {
-	ID     uint64          `json:"id,string,omitempty"`
+	ID     uint64          `json:"id,omitempty"`
 	Func   string          `json:"method,omitempty"`
 	Args   json.RawMessage `json:"params,omitempty"`
 	Result json.RawMessage `json:"result,omitempty"`

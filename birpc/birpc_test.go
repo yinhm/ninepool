@@ -18,7 +18,7 @@ type Reply struct {
 }
 
 type LowLevelReply struct {
-	Id     uint64       `json:"id,string"`
+	Id     uint64       `json:"id"`
 	Result Reply        `json:"result"`
 	Error  *birpc.Error `json:"error"`
 }
@@ -41,7 +41,7 @@ func makeRegistry() *birpc.Registry {
 	return r
 }
 
-const PALINDROME = `{"id": "42", "method": "WordLength.Len", "params": {"Word": "saippuakauppias"}}` + "\n"
+const PALINDROME = `{"id": 42, "method": "WordLength.Len", "params": {"Word": "saippuakauppias"}}` + "\n"
 
 func TestServerSimple(t *testing.T) {
 	c, s := net.Pipe()
@@ -167,7 +167,7 @@ func (e *EndpointPeer) Poke(request *nothing, reply *nothing, endpoint *birpc.En
 }
 
 type EndpointPeer_LowLevelReply struct {
-	Id     uint64          `json:"id,string"`
+	Id     uint64          `json:"id"`
 	Result json.RawMessage `json:"result"`
 	Error  *birpc.Error    `json:"error"`
 }
@@ -186,7 +186,7 @@ func TestServerEndpointArg(t *testing.T) {
 		server_err <- server.Serve()
 	}()
 
-	io.WriteString(c, `{"id":"42","method":"EndpointPeer.Poke","params":{}}`)
+	io.WriteString(c, `{"id":42,"method":"EndpointPeer.Poke","params":{}}`)
 
 	var reply EndpointPeer_LowLevelReply
 	dec := json.NewDecoder(c)
