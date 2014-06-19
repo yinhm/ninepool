@@ -10,8 +10,8 @@ import (
 const (
 	network = "tcp4"
 	// addr    = "112.124.104.176:18333"
-	// addr    = "stratum.nicehash.com:3333"
-	addr = ":3335"
+	addr    = "stratum.nicehash.com:3333"
+	// addr = ":3335"
 )
 
 func main() {
@@ -20,8 +20,15 @@ func main() {
 		panic(err)
 	}
 
-	client := stratum.NewClient(conn)
+	errch := make(chan error)
+	client := stratum.NewClient(conn, errch)
 	log.Printf("client started...\n")
+
+	go func() {
+		if err := <-errch; err != nil {
+			log.Fatalf("Error on client.Serve: %s", err.Error())
+		}
+	}()
 
 	err = client.Subscribe()
 	if err != nil {

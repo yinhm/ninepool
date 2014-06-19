@@ -11,11 +11,11 @@ import (
 	"net"
 )
 
-func NewClient(conn net.Conn) *StratumClient {
+func NewClient(conn net.Conn, errch chan error) *StratumClient {
 	c := NewStratumClient()
 	defer c.close()
 
-	c.Serve(conn)
+	c.Serve(conn, errch)
 	return c
 }
 
@@ -45,11 +45,13 @@ func NewStratumClient() *StratumClient {
 	return sc
 }
 
-func (c *StratumClient) Serve(conn io.ReadWriteCloser) {
+func (c *StratumClient) Serve(conn io.ReadWriteCloser, errch chan error) {
 	c.endpoint = birpc.NewEndpoint(jsonmsg.NewCodec(conn), c.registry)
-	errCh := make(chan error)
 	go func() {
-		errCh <- c.endpoint.Serve()
+		err := c.endpoint.Serve()
+		if err != nil {
+			errch <- err
+		}
 	}()
 }
 

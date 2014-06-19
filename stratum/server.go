@@ -37,6 +37,7 @@ type StratumServer struct {
 	*Stratum
 	connections map[*birpc.Endpoint]*Connection
 	proxies     map[uint64]*Proxy
+	perrchs     map[uint64]chan error // proxy error chans
 	orders      map[uint64]*Order
 }
 
@@ -49,6 +50,7 @@ func NewStratumServer() *StratumServer {
 		Stratum:     s,
 		connections: make(map[*birpc.Endpoint]*Connection),
 		proxies:     make(map[uint64]*Proxy),
+		perrchs:     make(map[uint64]chan error),
 		orders:      InitOrders("x11"),
 	}
 	mining := &Mining{}
@@ -68,7 +70,9 @@ func (s *StratumServer) warmProxies() {
 		// connect to upstream proxy
 		log.Printf("connecting to #%d, %s ...\n", oid, order.Address())
 
-		proxy, err := NewProxy(order)
+		errch := make(chan error, 1)
+		s.perrchs[order.Id] = errch
+		proxy, err := NewProxy(order, errch)
 		if err != nil {
 			log.Printf("Error on connecting to %s: %s\n", order.Address(), err.Error())
 			order.markDead()
@@ -133,13 +137,13 @@ type Proxy struct {
 	closing  bool
 }
 
-func NewProxy(order *Order) (proxy *Proxy, err error) {
+func NewProxy(order *Order, errch chan error) (proxy *Proxy, err error) {
 	conn, err := net.Dial("tcp", order.Address())
 	if err != nil {
 		return nil, err
 	}
 
-	upstream := NewClient(conn)
+	upstream := NewClient(conn, errch)
 	err = upstream.Subscribe()
 	if err != nil {
 		return nil, err
