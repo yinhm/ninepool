@@ -11,6 +11,7 @@ const (
 	StateInit = iota
 	StateConnected
 	StateBanned
+	StateDead
 	StateWorking
 	StatePause
 	StateClosedCannel
@@ -24,12 +25,12 @@ var (
 )
 
 type Order struct {
-	Id       uint64
+	Id uint64
 
 	Algorithm string
 	// in satoshi, 10**8 staoshi = 1 btc
 	Amount uint64
-	Price uint64
+	Price  uint64
 
 	// Pool detail
 	Hostname string
@@ -37,25 +38,38 @@ type Order struct {
 	Username string
 	Password string
 
-	Status   uint32
-	Created  uint64
+	State   uint32
+	Created int64
 }
 
-func InitOrders(algo string) []Order {
-	o = &Order{
-		Id: 1,
-		Algorithm: 'x11',
-		Amount: 1 * UNIT_SATOSHI,
-		Price: 0.05 * UNIT_SATOSHI,
-		Hostname: "112.124.104.176",
-		Port: "18333",
-		Username: "1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda",
-		Password: "x",
-		Status: StateInit,
-		Created: time.Now().Unix(),
+func InitOrders(algo string) map[uint64]*Order {
+	od := &Order{
+		Id:        1,
+		Algorithm: algo,
+		Amount:    1 * UNIT_SATOSHI,
+		Price:     5 * UNIT_SATOSHI / 100,
+		Hostname:  "112.124.104.176",
+		Port:      "18333",
+		Username:  "1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda",
+		Password:  "x",
+		State:     StateInit,
+		Created:   time.Now().Unix(),
 	}
+
+	orders := make(map[uint64]*Order)
+	orders[od.Id] = od
+	return orders
+
 }
 
 func (od *Order) Address() string {
 	return fmt.Sprintf("%s:%s", od.Hostname, od.Port)
+}
+
+func (od *Order) markDead() {
+	od.State = StateDead
+}
+
+func (od *Order) markConnected() {
+	od.State = StateConnected
 }

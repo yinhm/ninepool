@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/yinhm/ninepool/stratum"
+	"log"
 	"net"
 )
 
@@ -15,6 +16,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	log.Printf("Listen on %s", addr)
 
 	stratum.NewServer(ln)
 }

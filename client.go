@@ -9,9 +9,9 @@ import (
 
 const (
 	network = "tcp4"
-	addr    = "112.124.104.176:18333"
+	// addr    = "112.124.104.176:18333"
 	// addr    = "stratum.nicehash.com:3333"
-	// addr = ":3335"
+	addr = ":3335"
 )
 
 func main() {

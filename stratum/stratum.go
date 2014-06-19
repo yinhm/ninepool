@@ -14,6 +14,7 @@ type List []interface{}
 // Stratum client connection context
 type Connection struct {
 	endpoint        *birpc.Endpoint
+	orderId         uint64
 	authorized      bool
 	extraNonce1     string
 	extraNonce2Size uint64
