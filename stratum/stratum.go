@@ -18,8 +18,8 @@ type Connection struct {
 	authorized      bool
 	extraNonce1     string
 	extraNonce2Size uint64
-	prevDifficulty  uint64
-	difficulty      uint64
+	prevDifficulty  float64
+	difficulty      float64
 	remoteAddress   string
 }
 
