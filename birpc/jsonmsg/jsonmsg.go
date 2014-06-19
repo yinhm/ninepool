@@ -25,7 +25,7 @@ type jsonMessage struct {
 	Func   string          `json:"method,omitempty"`
 	Args   json.RawMessage `json:"params,omitempty"`
 	Result json.RawMessage `json:"result,omitempty"`
-	Error  *birpc.Error    `json:"error,omitempty"`
+	Error  *json.RawMessage `json:"error,omitempty"`
 }
 
 type Notification struct {
@@ -45,7 +45,16 @@ func (c *codec) ReadMessage(msg *birpc.Message) error {
 	msg.Func = jm.Func
 	msg.Args = jm.Args
 	msg.Result = jm.Result
-	msg.Error = jm.Error
+
+	if jm.Error != nil {
+		rerr := &birpc.Error{}
+		err = c.UnmarshalError(jm.Error, rerr)
+		if err != nil {
+			return err
+		}
+		msg.Error = rerr
+	}
+
 	return nil
 }
 
@@ -86,6 +95,24 @@ func (c *codec) UnmarshalResult(msg *birpc.Message, result interface{}) error {
 	}
 	err := json.Unmarshal(raw, result)
 	return err
+}
+
+type List []interface{}
+func (c *codec) UnmarshalError(raw *json.RawMessage, rerr *birpc.Error) error {
+	if raw == nil {
+		return nil
+	}
+	to := &List{}
+	err := json.Unmarshal([]byte(*raw), to)
+	if err != nil {
+		return err
+	}
+	d := (List)(*to)
+
+	rerr.Code = int64(d[0].(float64))
+	rerr.Msg = d[1].(string)
+	rerr.Data = d[2]
+	return nil
 }
 
 func NewCodec(conn io.ReadWriteCloser) *codec {

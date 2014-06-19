@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"encoding/json"
 )
 
 type function struct {
@@ -120,6 +121,7 @@ type Codec interface {
 
 	UnmarshalArgs(msg *Message, args interface{}) error
 	UnmarshalResult(msg *Message, result interface{}) error
+	UnmarshalError(rawMsg *json.RawMessage, rerr *Error) error
 
 	io.Closer
 }

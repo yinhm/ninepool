@@ -39,7 +39,7 @@ type Message struct {
 type Error struct {
 	Code int64 `json:"code,omitempty"`
 	Msg string `json:"message,omitempty"`
-	Data *string `json:"data,omitempty"`
+	Data interface{} `json:"data,omitempty"`
 
 	// more fields may be added later
 
