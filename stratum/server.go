@@ -149,7 +149,7 @@ func NewProxy(order *Order, errch chan error) (proxy *Proxy, err error) {
 		return nil, err
 	}
 
-	err = upstream.Authorize("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "x")
+	err = upstream.Authorize(order.Username, order.Password)
 	if err != nil {
 		return nil, err
 	}

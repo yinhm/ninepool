@@ -3,11 +3,11 @@ package stratum
 import (
 	"errors"
 	"fmt"
-	"log"
+	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/birpc/jsonmsg"
-	"github.com/tv42/topic"
 	"io"
+	"log"
 	"net"
 )
 
@@ -21,8 +21,10 @@ func NewClient(conn net.Conn, errch chan error) *StratumClient {
 
 type StratumClient struct {
 	*Stratum
-	endpoint *birpc.Endpoint
+	endpoint        *birpc.Endpoint
 	authorized      bool
+	username        string
+	jobId           string //fallback
 	extraNonce1     string
 	extraNonce2Size uint64
 	prevDifficulty  float64

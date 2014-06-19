@@ -95,6 +95,8 @@ func (m *Mining) Set_difficulty(req *interface{}, reply *interface{}) error {
 }
 
 func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) error {
+	log.Printf("%v\n", &m)
+
 	username := (*args).([]interface{})[0].(string)
 
 	_, err := btcutil.DecodeAddress(username, &btcnet.MainNetParams)
