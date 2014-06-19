@@ -75,7 +75,6 @@ func (m *Mining) notify(e *birpc.Endpoint) {
 	var msg birpc.Message
 
 	msg.ID = 0
-	msg.Error = nil
 	msg.Func = "mining.notify"
 	msg.Args = nil
 	msg.Result = newjob

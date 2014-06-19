@@ -34,6 +34,8 @@ type Message struct {
 	Error *Error `json:"error,omitempty"`
 }
 
+type List []interface{}
+
 // Error is the on-wire description of an error that occurred while
 // serving the method call.
 type Error struct {

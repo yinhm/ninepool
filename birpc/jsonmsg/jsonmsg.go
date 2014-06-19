@@ -28,11 +28,18 @@ type jsonMessage struct {
 	Error  *json.RawMessage `json:"error,omitempty"`
 }
 
+type responseMessage struct {
+	ID uint64 `json:"id,omitempty"`
+	Func string `json:"method,omitempty"`
+	Args interface{} `json:"params,omitempty"`
+	Result interface{} `json:"result,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 type Notification struct {
 	Func   string       `json:"method,omitempty"`
 	Args   interface{}  `json:"params,omitempty"`
 	Result interface{}  `json:"result,omitempty"`
-	Error  *birpc.Error `json:"error,omitempty"`
 }
 
 func (c *codec) ReadMessage(msg *birpc.Message) error {
@@ -68,11 +75,23 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 		n.Func = msg.Func
 		n.Args = msg.Args
 		n.Result = msg.Result
-		n.Error = msg.Error
 		return c.enc.Encode(n)
 	}
 
-	return c.enc.Encode(msg)
+	var r responseMessage
+	r.ID = msg.ID
+	r.Func = msg.Func
+	r.Args = msg.Args
+	r.Args = msg.Args
+	r.Result = msg.Result
+	if msg.Error != nil {
+		r.Error = &birpc.List{
+			msg.Error.Code, 
+			msg.Error.Msg, 
+			msg.Error.Data,
+		}
+	}
+	return c.enc.Encode(r)
 }
 
 func (c *codec) Close() error {
@@ -97,17 +116,16 @@ func (c *codec) UnmarshalResult(msg *birpc.Message, result interface{}) error {
 	return err
 }
 
-type List []interface{}
 func (c *codec) UnmarshalError(raw *json.RawMessage, rerr *birpc.Error) error {
 	if raw == nil {
 		return nil
 	}
-	to := &List{}
+	to := &birpc.List{}
 	err := json.Unmarshal([]byte(*raw), to)
 	if err != nil {
 		return err
 	}
-	d := (List)(*to)
+	d := (birpc.List)(*to)
 
 	rerr.Code = int64(d[0].(float64))
 	rerr.Msg = d[1].(string)
