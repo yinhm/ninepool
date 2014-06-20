@@ -138,10 +138,22 @@ type FillArgser interface {
 	FillArgs([]reflect.Value) error
 }
 
+// Stratum connection context
+type Context struct {
+	orderId         uint64
+	authorized      bool
+	extraNonce1     string
+	extraNonce2Size uint64
+	prevDifficulty  float64
+	difficulty      float64
+	remoteAddress   string
+}
+
 // Endpoint manages the state for one connection (via a Codec) and the
 // pending calls on it, both incoming and outgoing.
 type Endpoint struct {
 	codec Codec
+	context *Context
 
 	client struct {
 		// protects seq and pending
