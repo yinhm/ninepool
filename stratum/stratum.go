@@ -139,12 +139,20 @@ func (m *Mining) processShare(username, jobId, extranonce2, ntime, nonce string)
 
 type ExtraNonceCounter struct {
 	count uint32
-	Size uint32
+	Size int
+	NoncePlaceHolder []byte
 }
 
 func NewExtraNonceCounter() *ExtraNonceCounter {
 	var count uint32 = 1 << 27
-	return &ExtraNonceCounter{count, uint32(unsafe.Sizeof(count))}
+	p, _ := hex.DecodeString("f000000ff111111f")
+
+	ct := &ExtraNonceCounter{
+		count: count, 
+		Size: int(unsafe.Sizeof(count)),
+		NoncePlaceHolder: p,
+	}
+	return ct
 }
 
 func (ct *ExtraNonceCounter) Next() string {
@@ -152,4 +160,8 @@ func (ct *ExtraNonceCounter) Next() string {
   buf := make([]byte, ct.Size)
   binary.BigEndian.PutUint32(buf, ct.count)
   return hex.EncodeToString(buf)
+}
+
+func (ct *ExtraNonceCounter) Nonce2Size() int {
+  return len(ct.NoncePlaceHolder) - ct.Size
 }

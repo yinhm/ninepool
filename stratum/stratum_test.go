@@ -18,4 +18,8 @@ func TestExtraNonceCounter(t *testing.T) {
 	if counter.Next() != "08000002" {
 		t.Errorf("incorrect next nonce1")
 	}
+
+	if counter.Nonce2Size() != 4 {
+		t.Errorf("incorrect Nonce2Size")
+	}
 }
