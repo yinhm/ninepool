@@ -22,14 +22,6 @@ func NewClient(conn net.Conn, errch chan error) *StratumClient {
 type StratumClient struct {
 	*Stratum
 	endpoint        *birpc.Endpoint
-	authorized      bool
-	username        string
-	jobId           string //fallback
-	extraNonce1     string
-	extraNonce2Size uint64
-	prevDifficulty  float64
-	difficulty      float64
-	remoteAddress   string
 	active          bool
 }
 
@@ -58,23 +50,23 @@ func (c *StratumClient) Serve(conn io.ReadWriteCloser, errch chan error) {
 }
 
 func (c *StratumClient) Subscribe() (err error) {
-	args := List{}
-	reply := &List{}
+	args := birpc.List{}
+	reply := &birpc.List{}
 	err = c.endpoint.Call("mining.subscribe", args, reply)
 
 	if err != nil {
 		return errors.New("mining.subscribe failed")
 	}
 
-	data := (List)(*reply)
+	data := (birpc.List)(*reply)
 
-	c.extraNonce1 = data[1].(string)
-	if c.extraNonce1 == "" {
+	c.endpoint.Context.ExtraNonce1 = data[1].(string)
+	if c.endpoint.Context.ExtraNonce1 == "" {
 		return errors.New("Failed to get nonce1")
 	}
 
-	c.extraNonce2Size = (uint64)(data[2].(float64))
-	if c.extraNonce2Size < 1 {
+	c.endpoint.Context.ExtraNonce2Size = (uint64)(data[2].(float64))
+	if c.endpoint.Context.ExtraNonce2Size < 1 {
 		return errors.New("Failed to get nonce2size")
 	}
 
@@ -85,19 +77,19 @@ func (c *StratumClient) Subscribe() (err error) {
 
 func (c *StratumClient) Authorize(username, password string) error {
 	var authed bool
-	params := List{username, password}
+	params := birpc.List{username, password}
 	err := c.endpoint.Call("mining.authorize", params, &authed)
 	if err != nil {
 		return errors.New("Auth failed.")
 	}
 
-	c.authorized = true
+	c.endpoint.Context.Authorized = true
 	return nil
 }
 
 func (c *StratumClient) Submit(username, jobId, extranonce2, ntime, nonce string) error {
 	var accepted bool
-	params := List{username, jobId, extranonce2, ntime, nonce}
+	params := birpc.List{username, jobId, extranonce2, ntime, nonce}
 	err := c.endpoint.Call("mining.submit", params, &accepted)
 	if err != nil {
 		return errors.New(fmt.Sprintf("share rejected, %s.", err.Error()))

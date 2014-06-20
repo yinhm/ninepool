@@ -9,20 +9,6 @@ import (
 	"time"
 )
 
-type List []interface{}
-
-// Stratum client connection context
-type Connection struct {
-	endpoint        *birpc.Endpoint
-	orderId         uint64
-	authorized      bool
-	extraNonce1     string
-	extraNonce2Size uint64
-	prevDifficulty  float64
-	difficulty      float64
-	remoteAddress   string
-}
-
 type Stratum struct {
 	broadcast *topic.Topic
 	registry  *birpc.Registry
@@ -45,7 +31,7 @@ func (s *Stratum) close() {
 type Mining struct{}
 
 func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoint) error {
-	*reply = List{
+	*reply = birpc.List{
 		[][]string{
 			{"mining.set_difficulty", "b4b6693b72a50c7116db18d6497cac52"},
 			{"mining.notify", "ae6812eb4cd7735a302a8a9dd95cf71f"},
@@ -95,8 +81,6 @@ func (m *Mining) Set_difficulty(req *interface{}, reply *interface{}) error {
 }
 
 func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) error {
-	log.Printf("%v\n", &m)
-
 	username := (*args).([]interface{})[0].(string)
 
 	_, err := btcutil.DecodeAddress(username, &btcnet.MainNetParams)
@@ -107,11 +91,7 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 	}
 
 	// authented
-	conn, err := DefaultServer.Connection(e)
-	if err != nil {
-		return err
-	}
-	conn.authorized = true
+	e.Context.Authorized = true
 
 	*reply = true
 	return nil
@@ -119,12 +99,7 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 
 func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error {
 	// verify authentation
-	conn, err := DefaultServer.Connection(e)
-	if err != nil {
-		e.WaitClose()
-		return err
-	}
-	if conn.authorized != true {
+	if e.Context.Authorized != true {
 		e.WaitClose()
 		return &birpc.Error{24, "unauthorized worker", nil}
 	}
@@ -136,7 +111,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	ntime := params[3].(string)
 	nonce := params[4].(string)
 
-	if conn.extraNonce1 == "" {
+	if e.Context.ExtraNonce1 == "" {
 		e.WaitClose()
 		return &birpc.Error{25, "not subscribed", nil}
 	}

@@ -140,20 +140,19 @@ type FillArgser interface {
 
 // Stratum connection context
 type Context struct {
-	orderId         uint64
-	authorized      bool
-	extraNonce1     string
-	extraNonce2Size uint64
-	prevDifficulty  float64
-	difficulty      float64
-	remoteAddress   string
+	OrderId         uint64
+	Authorized      bool
+	ExtraNonce1     string
+	ExtraNonce2Size uint64
+	PrevDifficulty  float64
+	Difficulty      float64
+	RemoteAddress   string
 }
 
 // Endpoint manages the state for one connection (via a Codec) and the
 // pending calls on it, both incoming and outgoing.
 type Endpoint struct {
 	codec Codec
-	context *Context
 
 	client struct {
 		// protects seq and pending
@@ -166,6 +165,8 @@ type Endpoint struct {
 		registry *Registry
 		running  sync.WaitGroup
 	}
+
+	Context *Context
 }
 
 // Dummy registry with no functions registered.
@@ -183,6 +184,7 @@ func NewEndpoint(codec Codec, registry *Registry) *Endpoint {
 	e.codec = codec
 	e.server.registry = registry
 	e.client.pending = make(map[uint64]*rpc.Call)
+	e.Context = &Context{}
 	return e
 }
 

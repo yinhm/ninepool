@@ -35,7 +35,7 @@ func NewServer(ln net.Listener) {
 type StratumServer struct {
 	lock sync.Mutex
 	*Stratum
-	connections map[*birpc.Endpoint]*Connection
+	endpoints   map[*birpc.Endpoint]*birpc.Endpoint
 	proxies     map[uint64]*Proxy
 	perrchs     map[uint64]chan error // proxy error chans
 	orders      map[uint64]*Order
@@ -48,7 +48,7 @@ func NewStratumServer() *StratumServer {
 	}
 	DefaultServer = &StratumServer{
 		Stratum:     s,
-		connections: make(map[*birpc.Endpoint]*Connection),
+		endpoints:   make(map[*birpc.Endpoint]*birpc.Endpoint),
 		proxies:     make(map[uint64]*Proxy),
 		perrchs:     make(map[uint64]chan error),
 		orders:      InitOrders("x11"),
@@ -102,9 +102,7 @@ func (s *StratumServer) Serve(conn net.Conn) {
 
 func (s *StratumServer) newEndpoint(conn net.Conn) *birpc.Endpoint {
 	e := birpc.NewEndpoint(jsonmsg.NewCodec(conn), s.registry)
-	clientConn := &Connection{endpoint: e}
-	// clientConn.bindProxy(s.firstOrder())
-	s.connections[e] = clientConn
+	s.endpoints[e] = e
 	return e
 }
 
@@ -119,21 +117,21 @@ func (s *StratumServer) firstProxy() (*Proxy, error) {
 	return nil, errors.New("No proxy available.")
 }
 
-func (s *StratumServer) Connection(e *birpc.Endpoint) (conn *Connection, err error) {
-	conn, ok := s.connections[e]
-	if !ok {
-		e.Close()
-		return nil, ErrServerUnexpected
-	}
+// func (s *StratumServer) Connection(e *birpc.Endpoint) (conn *Connection, err error) {
+// 	conn, ok := s.connections[e]
+// 	if !ok {
+// 		e.Close()
+// 		return nil, ErrServerUnexpected
+// 	}
 
-	return conn, nil
-}
+// 	return conn, nil
+// }
 
 type Proxy struct {
 	address  string
 	order    *Order
 	upstream *StratumClient
-	miners   map[*birpc.Endpoint]*Connection
+	miners   map[*birpc.Endpoint]*birpc.Endpoint
 	closing  bool
 }
 
