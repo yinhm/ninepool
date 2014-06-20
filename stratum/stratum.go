@@ -107,7 +107,7 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 	}
 
 	// authented
-	conn, err := mainserver.Connection(e)
+	conn, err := DefaultServer.Connection(e)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 
 func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error {
 	// verify authentation
-	conn, err := mainserver.Connection(e)
+	conn, err := DefaultServer.Connection(e)
 	if err != nil {
 		e.WaitClose()
 		return err

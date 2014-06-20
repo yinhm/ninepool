@@ -12,7 +12,7 @@ import (
 )
 
 var ErrServerUnexpected = errors.New("Server error.")
-var mainserver *StratumServer
+var DefaultServer *StratumServer
 
 func NewServer(ln net.Listener) {
 	s := NewStratumServer()
@@ -46,7 +46,7 @@ func NewStratumServer() *StratumServer {
 		broadcast: topic.New(),
 		registry:  birpc.NewRegistry(),
 	}
-	mainserver = &StratumServer{
+	DefaultServer = &StratumServer{
 		Stratum:     s,
 		connections: make(map[*birpc.Endpoint]*Connection),
 		proxies:     make(map[uint64]*Proxy),
@@ -55,8 +55,8 @@ func NewStratumServer() *StratumServer {
 	}
 	mining := &Mining{}
 	// ss.registry.RegisterService(ss)
-	mainserver.registry.RegisterService(mining)
-	return mainserver
+	DefaultServer.registry.RegisterService(mining)
+	return DefaultServer
 }
 
 func (s *StratumServer) warmProxies() {
