@@ -140,6 +140,7 @@ type FillArgser interface {
 
 // Stratum connection context
 type Context struct {
+	SubId           string
 	OrderId         uint64
 	Authorized      bool
 	ExtraNonce1     string

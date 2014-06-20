@@ -31,10 +31,13 @@ func (s *Stratum) close() {
 type Mining struct{}
 
 func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoint) error {
+	subId := randhash()
+	e.Context.SubId = subId
+
 	*reply = birpc.List{
 		[][]string{
-			{"mining.set_difficulty", "b4b6693b72a50c7116db18d6497cac52"},
-			{"mining.notify", "ae6812eb4cd7735a302a8a9dd95cf71f"},
+			{"mining.set_difficulty", subId},
+			{"mining.notify", subId},
 		},
 		"08000002",
 		4,
