@@ -1,12 +1,15 @@
 package stratum
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"github.com/conformal/btcnet"
 	"github.com/conformal/btcutil"
 	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
 	"log"
 	"time"
+	"unsafe"
 )
 
 type Stratum struct {
@@ -131,4 +134,22 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 func (m *Mining) processShare(username, jobId, extranonce2, ntime, nonce string) error {
 	log.Printf("share accepted: %v\n", jobId)
 	return nil
+}
+
+
+type ExtraNonceCounter struct {
+	count uint32
+	Size uint32
+}
+
+func NewExtraNonceCounter() *ExtraNonceCounter {
+	var count uint32 = 1 << 27
+	return &ExtraNonceCounter{count, uint32(unsafe.Sizeof(count))}
+}
+
+func (ct *ExtraNonceCounter) Next() string {
+	ct.count += 1
+  buf := make([]byte, ct.Size)
+  binary.BigEndian.PutUint32(buf, ct.count)
+  return hex.EncodeToString(buf)
 }
