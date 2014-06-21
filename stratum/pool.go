@@ -63,8 +63,7 @@ func (p *Pool) Shutdown() {
 	p.upstream.Close()
 	p.upstream = nil
 
-	log.Printf("Pool {} stopped.", p.address)
+	log.Printf("Pool %s stopped.", p.address)
 
 	// relocate miners
-
 }

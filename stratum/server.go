@@ -8,29 +8,13 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"sync"
 )
 
 var ErrServerUnexpected = errors.New("Server error.")
 var DefaultServer *StratumServer
-
-func NewServer(ln net.Listener) {
-	s := NewStratumServer()
-	defer s.close()
-
-	go s.startPools()
-
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			continue
-		}
-
-		go func() {
-			s.Serve(conn)
-		}()
-	}
-}
 
 type StratumServer struct {
 	lock sync.Mutex
@@ -39,6 +23,8 @@ type StratumServer struct {
 	pools     map[uint64]*Pool
 	perrchs   map[uint64]chan error // pool error chans
 	orders    map[uint64]*Order
+	errCh     chan error
+	sigCh     chan os.Signal
 }
 
 func NewStratumServer() *StratumServer {
@@ -52,6 +38,8 @@ func NewStratumServer() *StratumServer {
 		pools:     make(map[uint64]*Pool),
 		perrchs:   make(map[uint64]chan error),
 		orders:    InitOrders("x11"),
+		errCh:     make(chan error),
+		sigCh:     make(chan os.Signal),
 	}
 	mining := &Mining{}
 	// ss.registry.RegisterService(ss)
@@ -59,18 +47,50 @@ func NewStratumServer() *StratumServer {
 	return DefaultServer
 }
 
-func (s *StratumServer) Serve(conn net.Conn) {
-	defer conn.Close()
+func (s *StratumServer) Start(l net.Listener) error {
+	defer s.close()
 
-	endpoint := s.newEndpoint(conn)
-	log.Printf("Client connected: %v\n", conn.RemoteAddr())
-	err := endpoint.Serve()
-	if err != nil {
-		if err == io.EOF {
-			log.Printf("Client disconnect: %v", conn.RemoteAddr())
-		} else {
-			log.Printf("Error %v: %v", conn.RemoteAddr(), err)
+	go s.startPools()
+	go s.serve(l)
+
+	signal.Notify(s.sigCh, os.Interrupt, os.Kill)
+
+	// Block until a signal is received or we got an error
+	select {
+	case signal := <-s.sigCh:
+		log.Printf("Got signal %s, waiting for shutdown...", signal)
+		s.Shutdown()
+		return nil
+	case err := <-s.errCh:
+		log.Printf("Server shutdown with error: %s", err)
+		s.Shutdown()
+		return err
+	}
+	return nil
+}
+
+func (s *StratumServer) serve(l net.Listener) {
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Printf("Error on accept connect.")
+			continue
 		}
+
+		go func() {
+			defer conn.Close()
+
+			endpoint := s.newEndpoint(conn)
+			log.Printf("Client connected: %v\n", conn.RemoteAddr())
+			err := endpoint.Serve()
+			if err != nil {
+				if err == io.EOF {
+					log.Printf("Client disconnect: %v", conn.RemoteAddr())
+				} else {
+					log.Printf("Error %v: %v", conn.RemoteAddr(), err)
+				}
+			}
+		}()
 	}
 }
 
@@ -104,6 +124,10 @@ func (s *StratumServer) startPools() {
 		s.pools[oid] = pool
 		s.lock.Unlock()
 	}
+}
+
+func (s *StratumServer) Shutdown() {
+	s.stopPools()
 }
 
 func (s *StratumServer) stopPools() {
