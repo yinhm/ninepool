@@ -16,6 +16,7 @@
 package birpc
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -23,7 +24,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"encoding/json"
 )
 
 type function struct {
@@ -138,18 +138,6 @@ type FillArgser interface {
 	FillArgs([]reflect.Value) error
 }
 
-// Stratum connection context
-type Context struct {
-	SubId           string
-	OrderId         uint64
-	Authorized      bool
-	ExtraNonce1     string
-	ExtraNonce2Size uint64
-	PrevDifficulty  float64
-	Difficulty      float64
-	RemoteAddress   string
-}
-
 // Endpoint manages the state for one connection (via a Codec) and the
 // pending calls on it, both incoming and outgoing.
 type Endpoint struct {
@@ -167,7 +155,7 @@ type Endpoint struct {
 		running  sync.WaitGroup
 	}
 
-	Context *Context
+	Context interface{}
 }
 
 // Dummy registry with no functions registered.
@@ -185,7 +173,6 @@ func NewEndpoint(codec Codec, registry *Registry) *Endpoint {
 	e.codec = codec
 	e.server.registry = registry
 	e.client.pending = make(map[uint64]*rpc.Call)
-	e.Context = &Context{}
 	return e
 }
 

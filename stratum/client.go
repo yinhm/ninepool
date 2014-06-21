@@ -19,10 +19,23 @@ func NewClient(conn net.Conn, errch chan error) *StratumClient {
 	return c
 }
 
+// Stratum client context, passed to birpc
+type ClientContext struct {
+	SubId           string
+	OrderId         uint64
+	Authorized      bool
+	ExtraNonce1     string
+	ExtraNonce2Size uint64
+	PrevDifficulty  float64
+	Difficulty      float64
+	RemoteAddress   string
+}
+
 type StratumClient struct {
 	*Stratum
-	endpoint        *birpc.Endpoint
-	active          bool
+	endpoint *birpc.Endpoint
+	context  *ClientContext
+	active   bool
 }
 
 func NewStratumClient() *StratumClient {
@@ -41,6 +54,7 @@ func NewStratumClient() *StratumClient {
 
 func (c *StratumClient) Serve(conn io.ReadWriteCloser, errch chan error) {
 	c.endpoint = birpc.NewEndpoint(jsonmsg.NewCodec(conn), c.registry)
+	c.endpoint.Context = &ClientContext{}
 	go func() {
 		err := c.endpoint.Serve()
 		if err != nil {
@@ -64,13 +78,14 @@ func (c *StratumClient) Subscribe() (err error) {
 
 	data := (birpc.List)(*reply)
 
-	c.endpoint.Context.ExtraNonce1 = data[1].(string)
-	if c.endpoint.Context.ExtraNonce1 == "" {
+	context := c.endpoint.Context.(*ClientContext)
+	context.ExtraNonce1 = data[1].(string)
+	if context.ExtraNonce1 == "" {
 		return errors.New("Failed to get nonce1")
 	}
 
-	c.endpoint.Context.ExtraNonce2Size = (uint64)(data[2].(float64))
-	if c.endpoint.Context.ExtraNonce2Size < 1 {
+	context.ExtraNonce2Size = (uint64)(data[2].(float64))
+	if context.ExtraNonce2Size < 1 {
 		return errors.New("Failed to get nonce2size")
 	}
 
@@ -87,7 +102,8 @@ func (c *StratumClient) Authorize(username, password string) error {
 		return errors.New("Auth failed.")
 	}
 
-	c.endpoint.Context.Authorized = true
+	context := c.endpoint.Context.(*ClientContext)
+	context.Authorized = true
 	return nil
 }
 

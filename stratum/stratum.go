@@ -34,8 +34,9 @@ func (s *Stratum) close() {
 type Mining struct{}
 
 func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoint) error {
+	context := e.Context.(*Context)
 	subId := randhash()
-	e.Context.SubId = subId
+	context.SubId = subId
 
 	*reply = birpc.List{
 		[][]string{
@@ -47,6 +48,8 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 	}
 
 	go m.notify(e)
+
+	context.SubCh <- true
 	return nil
 }
 
@@ -97,15 +100,17 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 	}
 
 	// authented
-	e.Context.Authorized = true
+	context := e.Context.(*Context)
+	context.Authorized = true
 
 	*reply = true
 	return nil
 }
 
 func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error {
+	context := e.Context.(*Context)
 	// verify authentation
-	if e.Context.Authorized != true {
+	if context.Authorized != true {
 		e.WaitClose()
 		return &birpc.Error{24, "unauthorized worker", nil}
 	}
@@ -117,7 +122,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	ntime := params[3].(string)
 	nonce := params[4].(string)
 
-	if e.Context.ExtraNonce1 == "" {
+	if context.ExtraNonce1 == "" {
 		e.WaitClose()
 		return &birpc.Error{25, "not subscribed", nil}
 	}
@@ -136,10 +141,9 @@ func (m *Mining) processShare(username, jobId, extranonce2, ntime, nonce string)
 	return nil
 }
 
-
 type ExtraNonceCounter struct {
-	count uint32
-	Size int
+	count            uint32
+	Size             int
 	NoncePlaceHolder []byte
 }
 
@@ -148,8 +152,8 @@ func NewExtraNonceCounter() *ExtraNonceCounter {
 	p, _ := hex.DecodeString("f000000ff111111f")
 
 	ct := &ExtraNonceCounter{
-		count: count, 
-		Size: int(unsafe.Sizeof(count)),
+		count:            count,
+		Size:             int(unsafe.Sizeof(count)),
 		NoncePlaceHolder: p,
 	}
 	return ct
@@ -157,11 +161,11 @@ func NewExtraNonceCounter() *ExtraNonceCounter {
 
 func (ct *ExtraNonceCounter) Next() string {
 	ct.count += 1
-  buf := make([]byte, ct.Size)
-  binary.BigEndian.PutUint32(buf, ct.count)
-  return hex.EncodeToString(buf)
+	buf := make([]byte, ct.Size)
+	binary.BigEndian.PutUint32(buf, ct.count)
+	return hex.EncodeToString(buf)
 }
 
 func (ct *ExtraNonceCounter) Nonce2Size() int {
-  return len(ct.NoncePlaceHolder) - ct.Size
+	return len(ct.NoncePlaceHolder) - ct.Size
 }
