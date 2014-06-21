@@ -35,10 +35,10 @@ func NewServer(ln net.Listener) {
 type StratumServer struct {
 	lock sync.Mutex
 	*Stratum
-	endpoints   map[*birpc.Endpoint]*birpc.Endpoint
-	pools       map[uint64]*Pool
-	perrchs     map[uint64]chan error // pool error chans
-	orders      map[uint64]*Order
+	endpoints map[*birpc.Endpoint]*birpc.Endpoint
+	pools     map[uint64]*Pool
+	perrchs   map[uint64]chan error // pool error chans
+	orders    map[uint64]*Order
 }
 
 func NewStratumServer() *StratumServer {
@@ -47,42 +47,16 @@ func NewStratumServer() *StratumServer {
 		registry:  birpc.NewRegistry(),
 	}
 	DefaultServer = &StratumServer{
-		Stratum:     s,
-		endpoints:   make(map[*birpc.Endpoint]*birpc.Endpoint),
+		Stratum:   s,
+		endpoints: make(map[*birpc.Endpoint]*birpc.Endpoint),
 		pools:     make(map[uint64]*Pool),
-		perrchs:     make(map[uint64]chan error),
-		orders:      InitOrders("x11"),
+		perrchs:   make(map[uint64]chan error),
+		orders:    InitOrders("x11"),
 	}
 	mining := &Mining{}
 	// ss.registry.RegisterService(ss)
 	DefaultServer.registry.RegisterService(mining)
 	return DefaultServer
-}
-
-func (s *StratumServer) startPools() {
-	for oid, order := range s.orders {
-		// test if actived
-		_, ok := s.pools[oid]
-		if ok {
-			continue
-		}
-
-		// connect to upstream pool
-		log.Printf("connecting to #%d, %s ...\n", oid, order.Address())
-
-		errch := make(chan error, 1)
-		s.perrchs[order.Id] = errch
-		pool, err := NewPool(order, errch)
-		if err != nil {
-			log.Printf("Error on connecting to %s: %s\n", order.Address(), err.Error())
-			order.markDead()
-			continue
-		}
-
-		s.lock.Lock()
-		s.pools[oid] = pool
-		s.lock.Unlock()
-	}
 }
 
 func (s *StratumServer) Serve(conn net.Conn) {
@@ -104,6 +78,39 @@ func (s *StratumServer) newEndpoint(conn net.Conn) *birpc.Endpoint {
 	e := birpc.NewEndpoint(jsonmsg.NewCodec(conn), s.registry)
 	s.endpoints[e] = e
 	return e
+}
+
+func (s *StratumServer) startPools() {
+	for oid, order := range s.orders {
+		// test if actived
+		_, ok := s.pools[oid]
+		if ok {
+			continue
+		}
+
+		// connect to upstream pool
+		log.Printf("connecting to #%d, %s ...\n", oid, order.Address())
+
+		errch := make(chan error, 1)
+		s.perrchs[order.Id] = errch
+		pool, err := NewPool(order, errch)
+		if err != nil {
+			log.Printf("Failed to connecting the pool %s: %s\n", order.Address(), err.Error())
+			order.markDead()
+			continue
+		}
+
+		s.lock.Lock()
+		s.pools[oid] = pool
+		s.lock.Unlock()
+	}
+}
+
+func (s *StratumServer) stopPools() {
+	for _, pool := range s.pools {
+		pool.Shutdown()
+		// TODO: remove it from pools list?
+	}
 }
 
 func (s *StratumServer) firstPool() (*Pool, error) {

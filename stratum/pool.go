@@ -2,14 +2,19 @@ package stratum
 
 import (
 	"github.com/yinhm/ninepool/birpc"
+	"log"
 	"net"
+	"sync"
 )
 
 type Pool struct {
+	lock     sync.Mutex
 	address  string
 	order    *Order
 	upstream *StratumClient
 	miners   map[*birpc.Endpoint]*birpc.Endpoint
+	active   bool
+	stable   bool
 	closing  bool
 }
 
@@ -39,4 +44,27 @@ func NewPool(order *Order, errch chan error) (pool *Pool, err error) {
 	}
 
 	return p, nil
+}
+
+func (p *Pool) Shutdown() {
+	if p.upstream == nil {
+		return
+	}
+
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	p.active = false
+	p.stable = false
+	p.closing = true
+
+	log.Printf("Stopping pool %s...", p.address)
+
+	p.upstream.Close()
+	p.upstream = nil
+
+	log.Printf("Pool {} stopped.", p.address)
+
+	// relocate miners
+
 }

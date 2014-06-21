@@ -49,6 +49,10 @@ func (c *StratumClient) Serve(conn io.ReadWriteCloser, errch chan error) {
 	}()
 }
 
+func (c *StratumClient) Close() {
+	c.endpoint.Close()
+}
+
 func (c *StratumClient) Subscribe() (err error) {
 	args := birpc.List{}
 	reply := &birpc.List{}
