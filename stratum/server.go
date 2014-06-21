@@ -19,12 +19,13 @@ var DefaultServer *StratumServer
 type StratumServer struct {
 	lock sync.Mutex
 	*Stratum
-	endpoints map[*birpc.Endpoint]*birpc.Endpoint
-	pools     map[uint64]*Pool
-	perrchs   map[uint64]chan error // pool error chans
-	orders    map[uint64]*Order
-	errCh     chan error
-	sigCh     chan os.Signal
+	workers map[*birpc.Endpoint]*birpc.Endpoint
+	pools   map[uint64]*Pool
+	perrchs map[uint64]chan error // pool error chans
+	orders  map[uint64]*Order
+	errCh   chan error
+	sigCh   chan os.Signal
+	closing bool
 }
 
 func NewStratumServer() *StratumServer {
@@ -33,13 +34,13 @@ func NewStratumServer() *StratumServer {
 		registry:  birpc.NewRegistry(),
 	}
 	DefaultServer = &StratumServer{
-		Stratum:   s,
-		endpoints: make(map[*birpc.Endpoint]*birpc.Endpoint),
-		pools:     make(map[uint64]*Pool),
-		perrchs:   make(map[uint64]chan error),
-		orders:    InitOrders("x11"),
-		errCh:     make(chan error),
-		sigCh:     make(chan os.Signal),
+		Stratum: s,
+		workers: make(map[*birpc.Endpoint]*birpc.Endpoint),
+		pools:   make(map[uint64]*Pool),
+		perrchs: make(map[uint64]chan error),
+		orders:  InitOrders("x11"),
+		errCh:   make(chan error),
+		sigCh:   make(chan os.Signal),
 	}
 	mining := &Mining{}
 	// ss.registry.RegisterService(ss)
@@ -71,6 +72,10 @@ func (s *StratumServer) Start(l net.Listener) error {
 
 func (s *StratumServer) serve(l net.Listener) {
 	for {
+		if s.closing == true {
+			return
+		}
+
 		conn, err := l.Accept()
 		if err != nil {
 			log.Printf("Error on accept connect.")
@@ -87,16 +92,23 @@ func (s *StratumServer) serve(l net.Listener) {
 				if err == io.EOF {
 					log.Printf("Client disconnect: %v", conn.RemoteAddr())
 				} else {
-					log.Printf("Error %v: %v", conn.RemoteAddr(), err)
+					log.Printf("Error on %v", err)
 				}
 			}
+
+			s.lock.Lock()
+			log.Printf("Deleting worker %v", conn.RemoteAddr())
+			delete(s.workers, endpoint)
+			s.lock.Unlock()
 		}()
 	}
 }
 
 func (s *StratumServer) newEndpoint(conn net.Conn) *birpc.Endpoint {
 	e := birpc.NewEndpoint(jsonmsg.NewCodec(conn), s.registry)
-	s.endpoints[e] = e
+	s.lock.Lock()
+	s.workers[e] = e
+	s.lock.Unlock()
 	return e
 }
 
@@ -127,13 +139,26 @@ func (s *StratumServer) startPools() {
 }
 
 func (s *StratumServer) Shutdown() {
+	s.stopListen()
 	s.stopPools()
+	s.stopWorkers()
+}
+
+func (s *StratumServer) stopListen() {
+	s.closing = true
 }
 
 func (s *StratumServer) stopPools() {
 	for _, pool := range s.pools {
 		pool.Shutdown()
 		// TODO: remove it from pools list?
+	}
+}
+
+func (s *StratumServer) stopWorkers() {
+	log.Printf("Stopping %d workers.", len(s.workers))
+	for _, worker := range s.workers {
+		worker.Close() // close codec
 	}
 }
 
