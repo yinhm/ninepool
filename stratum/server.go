@@ -18,7 +18,7 @@ func NewServer(ln net.Listener) {
 	s := NewStratumServer()
 	defer s.close()
 
-	go s.warmProxies()
+	go s.startPools()
 
 	for {
 		conn, err := ln.Accept()
@@ -36,8 +36,8 @@ type StratumServer struct {
 	lock sync.Mutex
 	*Stratum
 	endpoints   map[*birpc.Endpoint]*birpc.Endpoint
-	proxies     map[uint64]*Proxy
-	perrchs     map[uint64]chan error // proxy error chans
+	pools       map[uint64]*Pool
+	perrchs     map[uint64]chan error // pool error chans
 	orders      map[uint64]*Order
 }
 
@@ -49,7 +49,7 @@ func NewStratumServer() *StratumServer {
 	DefaultServer = &StratumServer{
 		Stratum:     s,
 		endpoints:   make(map[*birpc.Endpoint]*birpc.Endpoint),
-		proxies:     make(map[uint64]*Proxy),
+		pools:     make(map[uint64]*Pool),
 		perrchs:     make(map[uint64]chan error),
 		orders:      InitOrders("x11"),
 	}
@@ -59,20 +59,20 @@ func NewStratumServer() *StratumServer {
 	return DefaultServer
 }
 
-func (s *StratumServer) warmProxies() {
+func (s *StratumServer) startPools() {
 	for oid, order := range s.orders {
 		// test if actived
-		_, ok := s.proxies[oid]
+		_, ok := s.pools[oid]
 		if ok {
 			continue
 		}
 
-		// connect to upstream proxy
+		// connect to upstream pool
 		log.Printf("connecting to #%d, %s ...\n", oid, order.Address())
 
 		errch := make(chan error, 1)
 		s.perrchs[order.Id] = errch
-		proxy, err := NewProxy(order, errch)
+		pool, err := NewPool(order, errch)
 		if err != nil {
 			log.Printf("Error on connecting to %s: %s\n", order.Address(), err.Error())
 			order.markDead()
@@ -80,7 +80,7 @@ func (s *StratumServer) warmProxies() {
 		}
 
 		s.lock.Lock()
-		s.proxies[oid] = proxy
+		s.pools[oid] = pool
 		s.lock.Unlock()
 	}
 }
@@ -106,15 +106,15 @@ func (s *StratumServer) newEndpoint(conn net.Conn) *birpc.Endpoint {
 	return e
 }
 
-func (s *StratumServer) firstProxy() (*Proxy, error) {
+func (s *StratumServer) firstPool() (*Pool, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	for _, proxy := range s.proxies {
-		return proxy, nil
+	for _, pool := range s.pools {
+		return pool, nil
 	}
 
-	return nil, errors.New("No proxy available.")
+	return nil, errors.New("No pool available.")
 }
 
 // func (s *StratumServer) Connection(e *birpc.Endpoint) (conn *Connection, err error) {
@@ -126,39 +126,3 @@ func (s *StratumServer) firstProxy() (*Proxy, error) {
 
 // 	return conn, nil
 // }
-
-type Proxy struct {
-	address  string
-	order    *Order
-	upstream *StratumClient
-	miners   map[*birpc.Endpoint]*birpc.Endpoint
-	closing  bool
-}
-
-func NewProxy(order *Order, errch chan error) (proxy *Proxy, err error) {
-	conn, err := net.Dial("tcp", order.Address())
-	if err != nil {
-		return nil, err
-	}
-
-	upstream := NewClient(conn, errch)
-	err = upstream.Subscribe()
-	if err != nil {
-		return nil, err
-	}
-
-	err = upstream.Authorize(order.Username, order.Password)
-	if err != nil {
-		return nil, err
-	}
-
-	order.markConnected()
-
-	p := &Proxy{
-		address:  order.Address(),
-		order:    order,
-		upstream: upstream,
-	}
-
-	return p, nil
-}
