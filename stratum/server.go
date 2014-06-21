@@ -19,7 +19,7 @@ var DefaultServer *StratumServer
 type StratumServer struct {
 	lock sync.Mutex
 	*Stratum
-	workers map[*birpc.Endpoint]*birpc.Endpoint
+	workers map[*birpc.Endpoint]*Worker
 	pools   map[uint64]*Pool
 	perrchs map[uint64]chan error // pool error chans
 	orders  map[uint64]*Order
@@ -35,7 +35,7 @@ func NewStratumServer() *StratumServer {
 	}
 	DefaultServer = &StratumServer{
 		Stratum: s,
-		workers: make(map[*birpc.Endpoint]*birpc.Endpoint),
+		workers: make(map[*birpc.Endpoint]*Worker),
 		pools:   make(map[uint64]*Pool),
 		perrchs: make(map[uint64]chan error),
 		orders:  InitOrders("x11"),
@@ -85,9 +85,14 @@ func (s *StratumServer) serve(l net.Listener) {
 		go func() {
 			defer conn.Close()
 
-			endpoint := s.newEndpoint(conn)
+			endpoint, err := s.newEndpoint(conn)
+			if err != nil {
+				log.Printf("No pool available.\n")
+				return
+			}
+
 			log.Printf("Client connected: %v\n", conn.RemoteAddr())
-			err := endpoint.Serve()
+			err = endpoint.Serve()
 			if err != nil {
 				if err == io.EOF {
 					log.Printf("Client disconnect: %v", conn.RemoteAddr())
@@ -104,12 +109,17 @@ func (s *StratumServer) serve(l net.Listener) {
 	}
 }
 
-func (s *StratumServer) newEndpoint(conn net.Conn) *birpc.Endpoint {
-	e := birpc.NewEndpoint(jsonmsg.NewCodec(conn), s.registry)
+func (s *StratumServer) newEndpoint(conn net.Conn) (*birpc.Endpoint, error) {
+	ep := birpc.NewEndpoint(jsonmsg.NewCodec(conn), s.registry)
+	pool, err := s.firstPool()
+	if err != nil {
+		return nil, err
+	}
+	worker := NewWorker(pool)
 	s.lock.Lock()
-	s.workers[e] = e
+	s.workers[ep] = worker
 	s.lock.Unlock()
-	return e
+	return ep, nil
 }
 
 func (s *StratumServer) startPools() {
@@ -157,7 +167,8 @@ func (s *StratumServer) stopPools() {
 
 func (s *StratumServer) stopWorkers() {
 	log.Printf("Stopping %d workers.", len(s.workers))
-	for _, worker := range s.workers {
+	for ep, worker := range s.workers {
+		ep.Close()
 		worker.Close() // close codec
 	}
 }
