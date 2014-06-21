@@ -19,6 +19,7 @@ var DefaultServer *StratumServer
 type StratumServer struct {
 	lock sync.Mutex
 	*Stratum
+	options Options
 	workers map[*birpc.Endpoint]*Worker
 	pools   map[uint64]*Pool
 	perrchs map[uint64]chan error // pool error chans
@@ -28,13 +29,14 @@ type StratumServer struct {
 	closing bool
 }
 
-func NewStratumServer() *StratumServer {
+func NewStratumServer(options Options) *StratumServer {
 	s := &Stratum{
 		broadcast: topic.New(),
 		registry:  birpc.NewRegistry(),
 	}
 	DefaultServer = &StratumServer{
 		Stratum: s,
+		options: options,
 		workers: make(map[*birpc.Endpoint]*Worker),
 		pools:   make(map[uint64]*Pool),
 		perrchs: make(map[uint64]chan error),
@@ -115,7 +117,7 @@ func (s *StratumServer) newEndpoint(conn net.Conn) (*birpc.Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	worker := NewWorker(pool)
+	worker := NewWorker(pool, ep, s.options.SubscribeTimeout)
 	s.lock.Lock()
 	s.workers[ep] = worker
 	s.lock.Unlock()
@@ -167,8 +169,7 @@ func (s *StratumServer) stopPools() {
 
 func (s *StratumServer) stopWorkers() {
 	log.Printf("Stopping %d workers.", len(s.workers))
-	for ep, worker := range s.workers {
-		ep.Close()
+	for _, worker := range s.workers {
 		worker.Close() // close codec
 	}
 }

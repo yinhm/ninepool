@@ -13,6 +13,12 @@ const (
 )
 
 func main() {
+	options, err := stratum.ParseCommandLine()
+	if err != nil {
+		log.Printf("Failed to parse command line: %s\n", err)
+		return
+	}
+
 	ln, err := net.Listen(network, addr)
 	if err != nil {
 		panic(err)
@@ -21,7 +27,7 @@ func main() {
 
 	log.Printf("Listen on %s", addr)
 
-	service := stratum.NewStratumServer()
+	service := stratum.NewStratumServer(options)
 	if err := service.Start(ln); err != nil {
 		log.Printf("Service exited with error: %s\n", err)
 		os.Exit(255)
