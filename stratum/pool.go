@@ -1,7 +1,6 @@
 package stratum
 
 import (
-	"github.com/yinhm/ninepool/birpc"
 	"log"
 	"net"
 	"sync"
@@ -12,7 +11,7 @@ type Pool struct {
 	address  string
 	order    *Order
 	upstream *StratumClient
-	miners   map[*birpc.Endpoint]*birpc.Endpoint
+	workers  map[*Worker]bool
 	active   bool
 	stable   bool
 	closing  bool
@@ -46,6 +45,7 @@ func NewPoolWithConn(order *Order, upstream *StratumClient) (pool *Pool) {
 		address:  order.Address(),
 		order:    order,
 		upstream: upstream,
+		workers:  make(map[*Worker]bool),
 	}
 }
 
@@ -69,4 +69,17 @@ func (p *Pool) Shutdown() {
 	log.Printf("Pool %s stopped.", p.address)
 
 	// relocate miners
+}
+
+func (p *Pool) addWorker(worker *Worker) {
+	p.workers[worker] = true
+}
+
+func (p *Pool) removeWorker(worker *Worker) {
+  _, ok := p.workers[worker]
+  if !ok {
+		log.Printf("work not found in pool %s.", p.address)
+    return
+  }
+	delete(p.workers, worker)
 }

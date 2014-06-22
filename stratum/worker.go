@@ -86,7 +86,11 @@ func (w *Worker) bindFirstPool() error {
 }
 
 func (w *Worker) rebind(newPool *Pool) {
+	if w.pool != nil {
+		w.pool.removeWorker(w)
+	}
 	w.pool = newPool
+	w.pool.addWorker(w)
 }
 
 func (w *Worker) newExtraNonce() {
