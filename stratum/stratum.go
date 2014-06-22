@@ -112,7 +112,8 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	// verify authentation
 	if context.Authorized != true {
 		e.WaitClose()
-		return &birpc.Error{24, "unauthorized worker", nil}
+		txt, _ := errorText[ErrorUnauthorizedWorker]
+		return &birpc.Error{ErrorUnauthorizedWorker, txt, nil}
 	}
 
 	params := (*args).([]interface{})
@@ -124,7 +125,8 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 
 	if context.ExtraNonce1 == "" {
 		e.WaitClose()
-		return &birpc.Error{25, "not subscribed", nil}
+		txt, _ := errorText[ErrorUnsubscribedWorker]
+		return &birpc.Error{ErrorUnsubscribedWorker, txt, nil}
 	}
 
 	err2 := m.processShare(username, jobId, extranonce2, ntime, nonce)
