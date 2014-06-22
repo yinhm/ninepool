@@ -18,6 +18,7 @@ type Context struct {
 	Difficulty      float64
 	RemoteAddress   string
 	SubCh           chan bool
+	PoolCh          chan bool // pool available
 }
 
 type Worker struct {
@@ -25,16 +26,17 @@ type Worker struct {
 	endpoint     *birpc.Endpoint
 	context      *Context
 	pool         *Pool
-	connected    bool
-	samplePeriod int // in minutes
+	connected    bool // true when subscribed
+	samplePeriod int  // in minutes
 	accepted     int
 	rejected     int
 	created      int64
 }
 
-func NewWorker(pool *Pool, endpoint *birpc.Endpoint, timeout time.Duration) *Worker {
+func NewWorker(endpoint *birpc.Endpoint, timeout time.Duration) *Worker {
 	context := &Context{
-		SubCh: make(chan bool, 1),
+		SubCh:  make(chan bool, 1),
+		PoolCh: make(chan bool, 1),
 	}
 
 	endpoint.Context = context
@@ -42,12 +44,11 @@ func NewWorker(pool *Pool, endpoint *birpc.Endpoint, timeout time.Duration) *Wor
 	worker := &Worker{
 		endpoint:     endpoint,
 		context:      context,
-		pool:         pool,
 		samplePeriod: 600,
 		created:      time.Now().Unix(),
 	}
 
-	go worker.ensureSubscribe(timeout)
+	go worker.waitSubscribe(timeout)
 
 	return worker
 }
@@ -56,17 +57,32 @@ func (w *Worker) Close() {
 	w.endpoint.Close()
 }
 
-func (w *Worker) ensureSubscribe(timeout time.Duration) {
-	//go func() { c <- client.Call("Service.Method", args, &reply) } ()
+func (w *Worker) waitSubscribe(timeout time.Duration) {
 	select {
 	case _ = <-w.context.SubCh:
-		w.connected = true
+		err := w.bindFirstPool()
+		if err != nil {
+			w.context.PoolCh <- false
+			w.connected = false
+		} else {
+			w.context.PoolCh <- true
+			w.connected = true
+		}
 		return
 	case <-time.After(timeout):
-		log.Printf("No subscribe request received from worker in %d seconds.", timeout)
+		log.Printf("No subscribe request received from worker in %.2f seconds.", timeout.Seconds())
 		w.Close()
 		return
 	}
+}
+
+func (w *Worker) bindFirstPool() error {
+	pool, err := DefaultServer.firstPool()
+	if err != nil {
+		return err
+	}
+	w.rebind(pool)
+	return nil
 }
 
 func (w *Worker) rebind(newPool *Pool) {

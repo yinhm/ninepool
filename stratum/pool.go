@@ -37,13 +37,16 @@ func NewPool(order *Order, errch chan error) (pool *Pool, err error) {
 
 	order.markConnected()
 
-	p := &Pool{
+	p := NewPoolWithConn(order, upstream)
+	return p, nil
+}
+
+func NewPoolWithConn(order *Order, upstream *StratumClient) (pool *Pool) {
+	return &Pool{
 		address:  order.Address(),
 		order:    order,
 		upstream: upstream,
 	}
-
-	return p, nil
 }
 
 func (p *Pool) Shutdown() {

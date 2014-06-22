@@ -35,7 +35,7 @@ type StratumClient struct {
 	*Stratum
 	endpoint *birpc.Endpoint
 	context  *ClientContext
-	active   bool
+	Active   bool
 }
 
 func NewStratumClient() *StratumClient {
@@ -73,7 +73,7 @@ func (c *StratumClient) Subscribe() (err error) {
 	err = c.endpoint.Call("mining.subscribe", args, reply)
 
 	if err != nil {
-		return errors.New("mining.subscribe failed")
+		return err
 	}
 
 	data := (birpc.List)(*reply)
@@ -89,7 +89,7 @@ func (c *StratumClient) Subscribe() (err error) {
 		return errors.New("Failed to get nonce2size")
 	}
 
-	c.active = true
+	c.Active = true
 
 	return nil
 }

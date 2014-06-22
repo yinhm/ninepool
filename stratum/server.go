@@ -91,15 +91,10 @@ func (s *StratumServer) serve(l net.Listener) {
 func (s *StratumServer) ServeConn(conn net.Conn) {
 	defer conn.Close()
 
-	pool, err := s.firstPool()
-	if err != nil {
-		log.Printf("No pool available.\n")
-	}
-
-	endpoint := s.newEndpoint(conn, pool)
+	endpoint := s.newEndpoint(conn)
 
 	log.Printf("Client connected: %v\n", conn.RemoteAddr())
-	err = endpoint.Serve()
+	err := endpoint.Serve()
 	if err != nil {
 		if err == io.EOF {
 			log.Printf("Client disconnect: %v", conn.RemoteAddr())
@@ -114,9 +109,9 @@ func (s *StratumServer) ServeConn(conn net.Conn) {
 	s.lock.Unlock()
 }
 
-func (s *StratumServer) newEndpoint(conn net.Conn, pool *Pool) *birpc.Endpoint {
+func (s *StratumServer) newEndpoint(conn net.Conn) *birpc.Endpoint {
 	ep := birpc.NewEndpoint(jsonmsg.NewCodec(conn), s.registry)
-	worker := NewWorker(pool, ep, s.options.SubscribeTimeout)
+	worker := NewWorker(ep, s.options.SubscribeTimeout)
 	s.lock.Lock()
 	s.workers[ep] = worker
 	s.lock.Unlock()
@@ -130,29 +125,37 @@ func (s *StratumServer) AddOrder(order *Order) {
 }
 
 func (s *StratumServer) startPools() {
-	for oid, order := range s.orders {
-		// test if actived
-		_, ok := s.pools[oid]
-		if ok {
-			continue
-		}
-
-		// connect to upstream pool
-		log.Printf("connecting to #%d, %s ...\n", oid, order.Address())
-
-		errch := make(chan error, 1)
-		s.perrchs[order.Id] = errch
-		pool, err := NewPool(order, errch)
-		if err != nil {
-			log.Printf("Failed to connecting the pool %s: %s\n", order.Address(), err.Error())
-			order.markDead()
-			continue
-		}
-
-		s.lock.Lock()
-		s.pools[oid] = pool
-		s.lock.Unlock()
+	for _, order := range s.orders {
+		s.activeOrder(order)
 	}
+}
+
+func (s *StratumServer) activeOrder(order *Order) {
+	// test if actived
+	_, ok := s.pools[order.Id]
+	if ok {
+		return
+	}
+
+	// connect to upstream pool
+	log.Printf("connecting to #%d, %s ...\n", order.Id, order.Address())
+
+	errch := make(chan error, 1)
+	pool, err := NewPool(order, errch)
+	if err != nil {
+		log.Printf("Failed to connecting the pool %s: %s\n", order.Address(), err.Error())
+		order.markDead()
+		return
+	}
+
+	s.ActivePool(order, pool, errch)
+}
+
+func (s *StratumServer) ActivePool(order *Order, pool *Pool, errch chan error) {
+	s.lock.Lock()
+	s.perrchs[order.Id] = errch
+	s.pools[order.Id] = pool
+	s.lock.Unlock()
 }
 
 func (s *StratumServer) Shutdown() {

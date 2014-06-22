@@ -35,6 +35,14 @@ type Mining struct{}
 
 func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoint) error {
 	context := e.Context.(*Context)
+
+	context.SubCh <- true
+	succeed := <-context.PoolCh
+	if !succeed {
+		e.WaitClose()
+		return &birpc.Error{ErrorUnknown, "No pool available", nil}
+	}
+
 	subId := randhash()
 	context.SubId = subId
 
@@ -47,14 +55,12 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 		4,
 	}
 
-	go m.notify(e)
-
-	context.SubCh <- true
+	defer m.notify(e)
 	return nil
 }
 
 func (m *Mining) notify(e *birpc.Endpoint) {
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	newjob := []interface{}{
 		"bf",
