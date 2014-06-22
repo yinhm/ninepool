@@ -8,6 +8,7 @@ import (
 	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
 	"log"
+	"sync"
 	"time"
 	"unsafe"
 )
@@ -150,6 +151,7 @@ func (m *Mining) processShare(username, jobId, extranonce2, ntime, nonce string)
 }
 
 type ExtraNonceCounter struct {
+	lock             sync.Mutex
 	count            uint32
 	Size             int
 	NoncePlaceHolder []byte
@@ -168,9 +170,11 @@ func NewExtraNonceCounter() *ExtraNonceCounter {
 }
 
 func (ct *ExtraNonceCounter) Next() string {
+	ct.lock.Lock()
 	ct.count += 1
 	buf := make([]byte, ct.Size)
 	binary.BigEndian.PutUint32(buf, ct.count)
+	ct.lock.Unlock()
 	return hex.EncodeToString(buf)
 }
 
