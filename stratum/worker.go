@@ -63,7 +63,8 @@ func (w *Worker) ensureSubscribe(timeout time.Duration) {
 		w.connected = true
 		return
 	case <-time.After(timeout):
-		log.Printf("No subscribe request received from work in %d seconds.", timeout)
+		log.Printf("No subscribe request received from worker in %d seconds.", timeout)
+		w.Close()
 		return
 	}
 }

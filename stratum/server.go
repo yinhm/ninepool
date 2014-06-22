@@ -84,44 +84,49 @@ func (s *StratumServer) serve(l net.Listener) {
 			continue
 		}
 
-		go func() {
-			defer conn.Close()
-
-			endpoint, err := s.newEndpoint(conn)
-			if err != nil {
-				log.Printf("No pool available.\n")
-				return
-			}
-
-			log.Printf("Client connected: %v\n", conn.RemoteAddr())
-			err = endpoint.Serve()
-			if err != nil {
-				if err == io.EOF {
-					log.Printf("Client disconnect: %v", conn.RemoteAddr())
-				} else {
-					log.Printf("Error on %v", err)
-				}
-			}
-
-			s.lock.Lock()
-			log.Printf("Deleting worker %v", conn.RemoteAddr())
-			delete(s.workers, endpoint)
-			s.lock.Unlock()
-		}()
+		go s.ServeConn(conn)
 	}
 }
 
-func (s *StratumServer) newEndpoint(conn net.Conn) (*birpc.Endpoint, error) {
-	ep := birpc.NewEndpoint(jsonmsg.NewCodec(conn), s.registry)
+func (s *StratumServer) ServeConn(conn net.Conn) {
+	defer conn.Close()
+
 	pool, err := s.firstPool()
 	if err != nil {
-		return nil, err
+		log.Printf("No pool available.\n")
 	}
+
+	endpoint := s.newEndpoint(conn, pool)
+
+	log.Printf("Client connected: %v\n", conn.RemoteAddr())
+	err = endpoint.Serve()
+	if err != nil {
+		if err == io.EOF {
+			log.Printf("Client disconnect: %v", conn.RemoteAddr())
+		} else {
+			log.Printf("Error on %v", err)
+		}
+	}
+
+	s.lock.Lock()
+	log.Printf("Deleting worker %v", conn.RemoteAddr())
+	delete(s.workers, endpoint)
+	s.lock.Unlock()
+}
+
+func (s *StratumServer) newEndpoint(conn net.Conn, pool *Pool) *birpc.Endpoint {
+	ep := birpc.NewEndpoint(jsonmsg.NewCodec(conn), s.registry)
 	worker := NewWorker(pool, ep, s.options.SubscribeTimeout)
 	s.lock.Lock()
 	s.workers[ep] = worker
 	s.lock.Unlock()
-	return ep, nil
+	return ep
+}
+
+func (s *StratumServer) AddOrder(order *Order) {
+	s.lock.Lock()
+	s.orders[order.Id] = order
+	s.lock.Unlock()
 }
 
 func (s *StratumServer) startPools() {
