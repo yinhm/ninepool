@@ -412,6 +412,27 @@ func (e *Endpoint) callNotify(fn *function, msg *Message) {
 	arglist[1] = args
 	arglist[2] = reply
 
+	if num_args > 3 {
+		for i := 3; i < num_args; i++ {
+			arglist[i] = reflect.Zero(fn.method.Type.In(i))
+		}
+		// first fill what we can
+		err = e.fillArgs(arglist[3:])
+		if err != nil {
+			e.codec.Close()
+			return
+		}
+
+		// then codec fills what it can
+		if filler, ok := e.codec.(FillArgser); ok {
+			err = filler.FillArgs(arglist[3:])
+			if err != nil {
+				e.codec.Close()
+				return
+			}
+		}
+	}
+
 	retval := fn.method.Func.Call(arglist)
 	erri := retval[0].Interface()
 	if erri != nil {
