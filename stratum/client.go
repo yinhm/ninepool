@@ -21,6 +21,7 @@ func NewClient(conn net.Conn, errch chan error) *StratumClient {
 
 // Stratum client context, passed to birpc
 type ClientContext struct {
+	CurrentJob      *Job
 	SubId           string
 	OrderId         uint64
 	Authorized      bool

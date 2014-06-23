@@ -1,6 +1,7 @@
 package stratum_test
 
 import (
+	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/stratum"
 	"io"
 	"net"
@@ -42,10 +43,21 @@ func addOrder() {
 	upstream := stratum.NewClient(pcli, errch)
 	ctx := upstream.Context()
 	ctx.ExtraNonce2Size = 4
+  ctx.CurrentJob = &stratum.Job{
+    "bf",
+    "4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
+    "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
+    "072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000",
+		birpc.List{},
+    "00000002",
+    "1c2ac4af",
+    "504e86b9",
+    false,
+  }
 
 	p, _ := stratum.NewPoolWithConn(order, upstream)
-
 	server.ActivePool(order, p, errch)
+	// _ = p.Context()
 }
 
 func closeServer() {
@@ -56,7 +68,6 @@ func closeServer() {
 
 func TestSubscribe(t *testing.T) {
 	initServer()
-	defer closeServer()
 	addOrder()
 
 	errch := make(chan error)
@@ -70,12 +81,13 @@ func TestSubscribe(t *testing.T) {
 	if client.Active != true {
 		t.Fatalf("Client not active.")
 	}
+
+	closeServer()
 }
 
 func TestSubscribeTimeout(t *testing.T) {
 	initServer()
-	defer closeServer()
-	server.AddOrder(&stratum.Order{Id: 1})
+	addOrder()
 
 	time.Sleep(150 * time.Millisecond)
 
@@ -83,11 +95,12 @@ func TestSubscribeTimeout(t *testing.T) {
 	if err == nil || err.Error() != "io: read/write on closed pipe" {
 		t.Fatalf("client should timeout without subscribe: %v", err)
 	}
+
+	closeServer()
 }
 
 func TestSubscribeNoPool(t *testing.T) {
 	initServer()
-	defer closeServer()
 
 	errch := make(chan error)
 	client := stratum.NewClient(cli, errch)
@@ -96,4 +109,6 @@ func TestSubscribeNoPool(t *testing.T) {
 	if err == nil || err.Error() != "No pool available" {
 		t.Fatalf("Should not have pools available: %v", err)
 	}
+
+	closeServer()
 }

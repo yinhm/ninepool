@@ -7,21 +7,6 @@ import (
 	"time"
 )
 
-// Stratum connection context, passed to birpc
-type Context struct {
-	pool            *Pool
-	SubId           string
-	OrderId         uint64
-	Authorized      bool
-	ExtraNonce1     string
-	ExtraNonce2Size int
-	PrevDifficulty  float64
-	Difficulty      float64
-	RemoteAddress   string
-	SubCh           chan bool
-	PoolCh          chan bool // pool available
-}
-
 type Worker struct {
 	lock         sync.Mutex
 	endpoint     *birpc.Endpoint
@@ -104,4 +89,23 @@ func (w *Worker) newDifficulty() {
 // Update the shares lists with the given share to compute hashrate
 func (w *Worker) updateShareLists() {
 
+}
+
+// Stratum connection context, passed to birpc
+type Context struct {
+	pool            *Pool
+	SubId           string
+	OrderId         uint64
+	Authorized      bool
+	ExtraNonce1     string
+	ExtraNonce2Size int
+	PrevDifficulty  float64
+	Difficulty      float64
+	RemoteAddress   string
+	SubCh           chan bool
+	PoolCh          chan bool // pool available
+}
+
+func (ctx *Context) CurrentJob() *Job {
+	return ctx.pool.CurrentJob()
 }

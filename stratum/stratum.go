@@ -67,37 +67,44 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 	context.ExtraNonce1 = nonce1
 	context.ExtraNonce2Size = nonce2Size
 
-	defer m.notify(e)
+	go m.notify(e)
+
 	return nil
 }
 
+// server mining.notify -> client
 func (m *Mining) notify(e *birpc.Endpoint) {
 	time.Sleep(50 * time.Millisecond)
 
-	newjob := []interface{}{
-		"bf",
-		"4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
-		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
-		"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000",
-		"00000002",
-		"1c2ac4af",
-		"504e86b9",
-		false,
-	}
-
+	context := e.Context.(*Context)
 	var msg birpc.Message
-
 	msg.ID = 0
 	msg.Func = "mining.notify"
-	msg.Args = nil
-	msg.Result = newjob
+	msg.Args = context.CurrentJob().tolist()
 
 	e.Notify(&msg)
 }
 
-// mining.notify notification from upstream
-func (m *Mining) Notify(req *interface{}, reply *interface{}) error {
-	log.Printf("mining.Notify\n")
+// upstream mining.notify -> server
+func (m *Mining) Notify(args *interface{}, reply *interface{}, e *birpc.Endpoint) error {
+	log.Printf("mining.notify\n")
+
+	params := birpc.List((*args).([]interface{}))
+	job := &Job{
+		JobId: params[0].(string),
+		PrevHash: params[1].(string),
+		Coinb1: params[2].(string),
+		Coinb2: params[3].(string),
+		MerkleBranch: birpc.List(params[4].([]interface{})),
+		Version: params[5].(string),
+		Nbits: params[6].(string),
+		Ntime: params[7].(string),
+		CleanJobs: params[8].(bool),
+	}
+
+	ctx := e.Context.(*ClientContext)
+	ctx.CurrentJob = job
+
 	return nil
 }
 
@@ -262,4 +269,39 @@ func (ct *ProxyExtraNonceCounter) Next() string {
 // api compatible with ExtraNonceCounter
 func (ct *ProxyExtraNonceCounter) Nonce2Size() int {
 	return ct.extra3Size
+}
+
+// job_id - ID of the job. Use this ID while submitting share generated from this job.
+// prevhash - Hash of previous block.
+// coinb1 - Initial part of coinbase transaction.
+// coinb2 - Final part of coinbase transaction.
+// merkle_branch - List of hashes, will be used for calculation of merkle root. This is not a list of all transactions, it only contains prepared hashes of steps of merkle tree algorithm. Please read some materials for understanding how merkle trees calculation works. Unfortunately this example don't have any step hashes included, my bad!
+// version - Bitcoin block version.
+// nbits - Encoded current network difficulty
+// ntime - Current ntime/
+// clean_jobs - When true, server indicates that submitting shares from previous jobs don't have a sense and such shares will be rejected. When this flag is set, miner should also drop all previous jobs, so job_ids can be eventually rotated.
+type Job struct {
+	JobId        string
+	PrevHash     string
+	Coinb1       string
+	Coinb2       string
+	MerkleBranch birpc.List
+	Version      string
+	Nbits        string
+	Ntime        string
+	CleanJobs    bool
+}
+
+func (job *Job) tolist() *birpc.List {
+	return &birpc.List{
+		job.JobId,
+		job.PrevHash,
+		job.Coinb1,
+		job.Coinb2,
+		job.MerkleBranch,
+		job.Version,
+		job.Nbits,
+		job.Ntime,
+		job.CleanJobs,
+	}
 }
