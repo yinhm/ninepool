@@ -40,7 +40,10 @@ func addOrder() {
 	pcli, _ := net.Pipe()
 	errch := make(chan error, 1)
 	upstream := stratum.NewClient(pcli, errch)
-	p := stratum.NewPoolWithConn(order, upstream)
+	ctx := upstream.Context()
+	ctx.ExtraNonce2Size = 4
+
+	p, _ := stratum.NewPoolWithConn(order, upstream)
 
 	server.ActivePool(order, p, errch)
 }

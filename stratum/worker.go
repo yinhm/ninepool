@@ -9,11 +9,12 @@ import (
 
 // Stratum connection context, passed to birpc
 type Context struct {
+	pool            *Pool
 	SubId           string
 	OrderId         uint64
 	Authorized      bool
 	ExtraNonce1     string
-	ExtraNonce2Size uint64
+	ExtraNonce2Size int
 	PrevDifficulty  float64
 	Difficulty      float64
 	RemoteAddress   string
@@ -25,7 +26,6 @@ type Worker struct {
 	lock         sync.Mutex
 	endpoint     *birpc.Endpoint
 	context      *Context
-	pool         *Pool
 	connected    bool // true when subscribed
 	samplePeriod int  // in minutes
 	accepted     int
@@ -86,11 +86,11 @@ func (w *Worker) bindFirstPool() error {
 }
 
 func (w *Worker) rebind(newPool *Pool) {
-	if w.pool != nil {
-		w.pool.removeWorker(w)
+	if w.context.pool != nil {
+		w.context.pool.removeWorker(w)
 	}
-	w.pool = newPool
-	w.pool.addWorker(w)
+	w.context.pool = newPool
+	w.context.pool.addWorker(w)
 }
 
 func (w *Worker) newExtraNonce() {

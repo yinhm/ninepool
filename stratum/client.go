@@ -25,7 +25,7 @@ type ClientContext struct {
 	OrderId         uint64
 	Authorized      bool
 	ExtraNonce1     string
-	ExtraNonce2Size uint64
+	ExtraNonce2Size int
 	PrevDifficulty  float64
 	Difficulty      float64
 	RemoteAddress   string
@@ -67,6 +67,10 @@ func (c *StratumClient) Close() {
 	c.endpoint.Close()
 }
 
+func (c *StratumClient) Context() *ClientContext {
+	return c.endpoint.Context.(*ClientContext)
+}
+
 func (c *StratumClient) Subscribe() (err error) {
 	args := birpc.List{}
 	reply := &birpc.List{}
@@ -78,13 +82,13 @@ func (c *StratumClient) Subscribe() (err error) {
 
 	data := (birpc.List)(*reply)
 
-	context := c.endpoint.Context.(*ClientContext)
+	context := c.Context()
 	context.ExtraNonce1 = data[1].(string)
 	if context.ExtraNonce1 == "" {
 		return errors.New("Failed to get nonce1")
 	}
 
-	context.ExtraNonce2Size = (uint64)(data[2].(float64))
+	context.ExtraNonce2Size = int(data[2].(float64))
 	if context.ExtraNonce2Size < 1 {
 		return errors.New("Failed to get nonce2size")
 	}
@@ -102,7 +106,7 @@ func (c *StratumClient) Authorize(username, password string) error {
 		return errors.New("Auth failed.")
 	}
 
-	context := c.endpoint.Context.(*ClientContext)
+	context := c.Context()
 	context.Authorized = true
 	return nil
 }

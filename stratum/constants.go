@@ -8,6 +8,9 @@ const (
 	ErrorLowDifficultyShare = 23
 	ErrorUnauthorizedWorker = 24
 	ErrorUnsubscribedWorker = 25
+
+	ExtraNonce2Size = 2
+	ExtraNonce3Size = 2 // two bytes, up to 65535 clients.
 )
 
 var errorText = map[int]string{

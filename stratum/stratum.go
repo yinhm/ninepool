@@ -8,6 +8,7 @@ import (
 	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
 	"log"
+	"math"
 	"sync"
 	"time"
 	"unsafe"
@@ -47,14 +48,24 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 	subId := randhash()
 	context.SubId = subId
 
+	nonce1 := context.pool.nextNonce1()
+	nonce2Size := context.pool.nonce2Size()
+	// if err != nil {
+	// 	e.WaitClose()
+	// 	return &birpc.Error{ErrorUnknown, err.Error(), nil}
+	// }
+
 	*reply = birpc.List{
 		[][]string{
 			{"mining.set_difficulty", subId},
 			{"mining.notify", subId},
 		},
-		"08000002",
-		4,
+		nonce1,
+		nonce2Size,
 	}
+
+	context.ExtraNonce1 = nonce1
+	context.ExtraNonce2Size = nonce2Size
 
 	defer m.notify(e)
 	return nil
@@ -150,6 +161,11 @@ func (m *Mining) processShare(username, jobId, extranonce2, ntime, nonce string)
 	return nil
 }
 
+type NonceCounter interface {
+	Next() string
+	Nonce2Size() int
+}
+
 type ExtraNonceCounter struct {
 	lock             sync.Mutex
 	count            uint32
@@ -180,4 +196,69 @@ func (ct *ExtraNonceCounter) Next() string {
 
 func (ct *ExtraNonceCounter) Nonce2Size() int {
 	return len(ct.NoncePlaceHolder) - ct.Size
+}
+
+// Logic should be the same as tail_iterator in stratum-mining-proxy
+//
+// # Proxypool #
+// ## How it works (how to proxy Stratrum) ##
+// The main problem to solve is how to generate unique work for every proxypool
+// client.
+
+// The idea is to reduce the size of `extraNonce2` so that the server controls
+// the first few bytes. This means that server will be able to generate a
+// unique coinbase for each client, mutating the coinbase hash.
+
+// This reduces the block search space for clients. However, the impact is
+// negligible. With a 4 byte upstream `extraNonce2`, and with the proxypool
+// server keeping 2 bytes for itself (clients get the other 2). This allows the
+// server to have 65536 concurrent connections and clients to have a maximum
+// hashrate of 2^32 x 2^16, or 256 tera hashes per second, which is more than
+// enough for Scrypt based coins at the time of writing.
+
+// Upon client share submission, the server checks that the share matches the
+// required upstream difficulty and resubmits it under it's own name.
+
+// ### Nonce ###
+// `extraNonce2Size` and `extraNonce3Size` control the how the upstream's
+// `extraNonce2` is split. Thus `extraNonce2Size` and `extraNonce3Size` should
+// add up the to the upstream's `extraNonce2`'s size.
+
+type ProxyExtraNonceCounter struct {
+	lock        sync.Mutex
+	count       uint32
+	maxClients  int
+	extraNonce1 string
+	extra1Size  int
+	extra2Size  int
+	extra3Size  int
+}
+
+func NewProxyExtraNonceCounter(extraNonce1 string, extra2Size, extra3Size int) *ProxyExtraNonceCounter {
+	maxClients := int(math.Pow(2, float64(extra3Size*8)))
+
+	ct := &ProxyExtraNonceCounter{
+		maxClients:  maxClients,
+		extraNonce1: extraNonce1,
+		extra2Size:  extra2Size,
+		extra3Size:  extra3Size,
+	}
+	ct.extra1Size = int(unsafe.Sizeof(ct.count))
+	return ct
+}
+
+// TODO: what happen if nonce1 excceed max???
+func (ct *ProxyExtraNonceCounter) Next() string {
+	ct.lock.Lock()
+	ct.count += 1
+	buf := make([]byte, ct.extra1Size)
+	binary.BigEndian.PutUint32(buf, ct.count)
+	ct.lock.Unlock()
+	index := ct.extra1Size - ct.extra2Size
+	return ct.extraNonce1 + hex.EncodeToString(buf[index:])
+}
+
+// api compatible with ExtraNonceCounter
+func (ct *ProxyExtraNonceCounter) Nonce2Size() int {
+	return ct.extra3Size
 }
