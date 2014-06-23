@@ -224,6 +224,7 @@ func (ct *ExtraNonceCounter) Nonce2Size() int {
 // `extraNonce2` is split. Thus `extraNonce2Size` and `extraNonce3Size` should
 // add up the to the upstream's `extraNonce2`'s size.
 
+// Zero extranonce is reserved for getwork connections.
 type ProxyExtraNonceCounter struct {
 	lock        sync.Mutex
 	count       uint32
