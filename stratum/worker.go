@@ -86,6 +86,14 @@ func (w *Worker) detachPool() {
 	w.context.pool = nil
 }
 
+func (w *Worker) sendJob(job *Job) {
+	var msg birpc.Message
+	msg.ID = 0
+	msg.Func = "mining.notify"
+	msg.Args = job.tolist()
+	w.endpoint.Notify(&msg)
+}
+
 func (w *Worker) newExtraNonce() {
 
 }

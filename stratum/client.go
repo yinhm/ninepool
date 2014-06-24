@@ -30,6 +30,8 @@ type ClientContext struct {
 	PrevDifficulty  float64
 	Difficulty      float64
 	RemoteAddress   string
+	JobCh           chan Job
+	ShutdownCh      chan bool
 }
 
 type StratumClient struct {
@@ -55,7 +57,10 @@ func NewStratumClient() *StratumClient {
 
 func (c *StratumClient) Serve(conn io.ReadWriteCloser, errch chan error) {
 	c.endpoint = birpc.NewEndpoint(jsonmsg.NewCodec(conn), c.registry)
-	c.endpoint.Context = &ClientContext{}
+	c.endpoint.Context = &ClientContext{
+		JobCh:      make(chan Job, 1),
+		ShutdownCh: make(chan bool, 1),
+	}
 	go func() {
 		err := c.endpoint.Serve()
 		if err != nil {

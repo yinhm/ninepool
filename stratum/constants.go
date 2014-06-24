@@ -1,5 +1,9 @@
 package stratum
 
+import (
+	"time"
+)
+
 // Stratum error codes.
 const (
 	ErrorUnknown            = 20
@@ -21,3 +25,5 @@ var errorText = map[int]string{
 	ErrorUnauthorizedWorker: "Unauthorized worker",
 	ErrorUnsubscribedWorker: "Worker not subscribed",
 }
+
+var DefaultPoolTimeout = time.Duration(10) * time.Minute

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type Pool struct {
@@ -57,7 +58,32 @@ func NewPoolWithConn(order *Order, upstream *StratumClient) (*Pool, error) {
 	}
 
 	p.nonceCounter = NewProxyExtraNonceCounter(context.ExtraNonce1, ExtraNonce2Size, ExtraNonce3Size)
+
+	go p.Serve(DefaultPoolTimeout)
+
 	return p, nil
+}
+
+func (p *Pool) Serve(timeout time.Duration) {
+	for {
+		if p.isClosed() {
+			break
+		}
+		ctx := p.Context()
+		select {
+		case job := <-ctx.JobCh:
+			p.broadcastMiningJob(&job)
+		case _ = <-ctx.ShutdownCh:
+			p.Shutdown()
+			break
+		case <-time.After(timeout):
+			log.Printf("Pool %s timeout in %d minutes.", p.address, timeout.Minutes())
+			p.Shutdown()
+			break
+		}
+	}
+
+	log.Printf("Pool %s stop serving.", p.address)
 }
 
 func (p *Pool) Context() *ClientContext {
@@ -65,6 +91,14 @@ func (p *Pool) Context() *ClientContext {
 		return nil
 	}
 	return p.upstream.Context()
+}
+
+func (p *Pool) isClosed() bool {
+	if p.upstream == nil {
+		return true
+	}
+
+	return p.closing
 }
 
 func (p *Pool) Shutdown() {
@@ -116,4 +150,11 @@ func (p *Pool) CurrentJob() (*Job, error) {
 		return nil, errors.New("Closed upstream.")
 	}
 	return p.Context().CurrentJob, nil
+}
+
+func (p *Pool) broadcastMiningJob(job *Job) {
+	for worker, _ := range p.workers {
+		worker.sendJob(job)
+	}
+	log.Printf("Broadcast job from %s to %d workers.", p.address, len(p.workers))
 }
