@@ -105,6 +105,8 @@ func (s *StratumServer) ServeConn(conn net.Conn) {
 
 	s.lock.Lock()
 	log.Printf("Deleting worker %v", conn.RemoteAddr())
+	worker, _ := s.workers[endpoint]
+	worker.Close()
 	delete(s.workers, endpoint)
 	s.lock.Unlock()
 }

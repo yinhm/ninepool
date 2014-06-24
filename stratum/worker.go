@@ -39,6 +39,7 @@ func NewWorker(endpoint *birpc.Endpoint, timeout time.Duration) *Worker {
 }
 
 func (w *Worker) Close() {
+	w.detachPool()
 	w.endpoint.Close()
 }
 
@@ -71,11 +72,17 @@ func (w *Worker) bindFirstPool() error {
 }
 
 func (w *Worker) rebind(newPool *Pool) {
-	if w.context.pool != nil {
-		w.context.pool.removeWorker(w)
-	}
+	w.detachPool()
 	w.context.pool = newPool
 	w.context.pool.addWorker(w)
+}
+
+func (w *Worker) detachPool() {
+	if w.context.pool == nil {
+		return
+	}
+	w.context.pool.removeWorker(w)
+	w.context.pool = nil
 }
 
 func (w *Worker) newExtraNonce() {
