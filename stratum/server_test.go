@@ -187,3 +187,35 @@ func TestBadAuthorize(t *testing.T) {
 
 	closeServer()
 }
+
+func TestSubmit(t *testing.T) {
+	initServer()
+	addOrder()
+
+	errch := make(chan error)
+	client := stratum.NewClient(cli, errch)
+
+	err := client.Subscribe()
+	if err != nil {
+		t.Fatalf("Failed on subscribe: %v", err)
+	}
+
+	ctx := client.Context()
+	err = client.Authorize("1HLoD9E4SDFFPDiYfNYnkBLQ85Y51J3Zb1", "x")
+	if !ctx.Authorized {
+		t.Fatalf("mining authorize failed")
+	}
+
+	time.Sleep(20 * time.Millisecond) // wait for job
+	if ctx.Difficulty != stratum.DefaultDifficulty {
+		t.Fatalf("mining.set_difficulty not received.")
+	}
+
+	err = client.Submit(ctx.Username, ctx.CurrentJob.JobId,
+		"0001", "504e86ed", "b2957c02")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	closeServer()
+}

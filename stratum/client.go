@@ -23,6 +23,8 @@ func NewClient(conn net.Conn, errch chan error) *StratumClient {
 type ClientContext struct {
 	CurrentJob      *Job
 	SubId           string
+	Username        string
+	Password        string
 	OrderId         uint64
 	Authorized      bool
 	ExtraNonce1     string
@@ -115,6 +117,8 @@ func (c *StratumClient) Authorize(username, password string) error {
 	}
 
 	context := c.Context()
+	context.Username = username
+	context.Password = password
 	context.Authorized = authed
 	return nil
 }

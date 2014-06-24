@@ -111,6 +111,8 @@ func (w *Worker) updateShareLists() {
 type Context struct {
 	pool            *Pool
 	SubId           string
+	Username        string
+	Password        string
 	OrderId         uint64
 	Authorized      bool
 	ExtraNonce1     string

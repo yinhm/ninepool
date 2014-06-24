@@ -135,7 +135,9 @@ func (m *Mining) Set_difficulty(args *interface{}, reply *interface{}, e *birpc.
 }
 
 func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) error {
-	username := (*args).([]interface{})[0].(string)
+	params := (*args).([]interface{})
+	username := params[0].(string)
+	password := params[1].(string)
 
 	_, err := btcutil.DecodeAddress(username, &btcnet.MainNetParams)
 	if err != nil {
@@ -144,7 +146,10 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 	} else {
 		// authented
 		context := e.Context.(*Context)
+		context.Username = username
+		context.Password = password
 		context.Authorized = true
+
 		*reply = true
 	}
 
@@ -152,14 +157,6 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 }
 
 func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error {
-	context := e.Context.(*Context)
-	// verify authentation
-	if context.Authorized != true {
-		e.WaitClose()
-		txt, _ := errorText[ErrorUnauthorizedWorker]
-		return &birpc.Error{ErrorUnauthorizedWorker, txt, nil}
-	}
-
 	params := (*args).([]interface{})
 	username := params[0].(string)
 	jobId := params[1].(string)
@@ -167,6 +164,15 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	ntime := params[3].(string)
 	nonce := params[4].(string)
 
+	context := e.Context.(*Context)
+	// verify authentation
+	if context.Authorized != true || username != context.Username {
+		e.WaitClose()
+		txt, _ := errorText[ErrorUnauthorizedWorker]
+		return &birpc.Error{ErrorUnauthorizedWorker, txt, nil}
+	}
+
+	// check extranonce2 size
 	if context.ExtraNonce1 == "" {
 		e.WaitClose()
 		txt, _ := errorText[ErrorUnsubscribedWorker]
