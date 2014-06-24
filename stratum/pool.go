@@ -77,7 +77,7 @@ func (p *Pool) Serve(timeout time.Duration) {
 			p.Shutdown()
 			break
 		case <-time.After(timeout):
-			log.Printf("Pool %s timeout in %d minutes.", p.address, timeout.Minutes())
+			log.Printf("Pool %s timeout in %.1f minutes.", p.address, timeout.Minutes())
 			p.Shutdown()
 			break
 		}
