@@ -43,17 +43,17 @@ func addOrder() {
 	upstream := stratum.NewClient(pcli, errch)
 	ctx := upstream.Context()
 	ctx.ExtraNonce2Size = 4
-  ctx.CurrentJob = &stratum.Job{
-    "bf",
-    "4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
-    "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
-    "072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000",
+	ctx.CurrentJob = &stratum.Job{
+		"bf",
+		"4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
+		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
+		"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000",
 		birpc.List{},
-    "00000002",
-    "1c2ac4af",
-    "504e86b9",
-    false,
-  }
+		"00000002",
+		"1c2ac4af",
+		"504e86b9",
+		false,
+	}
 
 	p, _ := stratum.NewPoolWithConn(order, upstream)
 	server.ActivePool(order, p, errch)
@@ -136,6 +136,53 @@ func TestSetDifficulty(t *testing.T) {
 	}
 	if ctx.CurrentJob.JobId != "bf" {
 		t.Fatalf("mining.notify not received.")
+	}
+
+	closeServer()
+}
+
+func TestAuthorize(t *testing.T) {
+	initServer()
+	addOrder()
+
+	errch := make(chan error)
+	client := stratum.NewClient(cli, errch)
+
+	err := client.Subscribe()
+	if err != nil {
+		t.Fatalf("Failed on subscribe: %v", err)
+	}
+
+	ctx := client.Context()
+	err = client.Authorize("1HLoD9E4SDFFPDiYfNYnkBLQ85Y51J3Zb1", "x")
+	if ctx.Authorized != true {
+		t.Fatalf("Failed on authorize")
+	}
+
+	closeServer()
+}
+
+func TestBadAuthorize(t *testing.T) {
+	initServer()
+	addOrder()
+
+	errch := make(chan error)
+	client := stratum.NewClient(cli, errch)
+
+	err := client.Subscribe()
+	if err != nil {
+		t.Fatalf("Failed on subscribe: %v", err)
+	}
+
+	ctx := client.Context()
+	err = client.Authorize("12HLoD9E4SDFFPDiYfNYnkBLQ85Y51J3Zb1", "x")
+	if ctx.Authorized != false {
+		t.Fatalf("mining authorize should fail")
+	}
+
+	_, err = io.WriteString(cli, "FAKE")
+	if err == nil || err.Error() != "io: read/write on closed pipe" {
+		t.Fatalf("client should closed on authorization fail: %v", err)
 	}
 
 	closeServer()

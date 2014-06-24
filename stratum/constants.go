@@ -25,7 +25,7 @@ var errorText = map[int]string{
 	ErrorDuplicateShare:     "Dupliate share",
 	ErrorLowDifficultyShare: "Low difficulty share",
 	ErrorUnauthorizedWorker: "Unauthorized worker",
-	ErrorUnsubscribedWorker: "Worker not subscribed",
+	ErrorUnsubscribedWorker: "Not subscribed",
 }
 
 var DefaultPoolTimeout = time.Duration(10) * time.Minute

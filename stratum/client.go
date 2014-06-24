@@ -115,7 +115,7 @@ func (c *StratumClient) Authorize(username, password string) error {
 	}
 
 	context := c.Context()
-	context.Authorized = true
+	context.Authorized = authed
 	return nil
 }
 

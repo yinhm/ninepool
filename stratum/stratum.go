@@ -139,16 +139,15 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 
 	_, err := btcutil.DecodeAddress(username, &btcnet.MainNetParams)
 	if err != nil {
-		*reply = false
 		e.WaitClose()
-		return err
+		*reply = false
+	} else {
+		// authented
+		context := e.Context.(*Context)
+		context.Authorized = true
+		*reply = true
 	}
 
-	// authented
-	context := e.Context.(*Context)
-	context.Authorized = true
-
-	*reply = true
 	return nil
 }
 
