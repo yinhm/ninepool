@@ -77,10 +77,17 @@ func (m *Mining) notify(e *birpc.Endpoint) {
 	time.Sleep(50 * time.Millisecond)
 
 	context := e.Context.(*Context)
+
+	job, err := context.CurrentJob()
+	if err != nil {
+		e.Close()
+		return
+	}
+
 	var msg birpc.Message
 	msg.ID = 0
 	msg.Func = "mining.notify"
-	msg.Args = context.CurrentJob().tolist()
+	msg.Args = job.tolist()
 
 	e.Notify(&msg)
 }

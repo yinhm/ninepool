@@ -61,6 +61,9 @@ func NewPoolWithConn(order *Order, upstream *StratumClient) (*Pool, error) {
 }
 
 func (p *Pool) Context() *ClientContext {
+	if p.upstream == nil {
+		return nil
+	}
 	return p.upstream.Context()
 }
 
@@ -107,6 +110,10 @@ func (p *Pool) nonce2Size() int {
 	return p.nonceCounter.Nonce2Size()
 }
 
-func (p *Pool) CurrentJob() *Job {
-	return p.Context().CurrentJob
+func (p *Pool) CurrentJob() (*Job, error) {
+	ctx := p.Context()
+	if ctx == nil {
+		return nil, errors.New("Closed upstream.")
+	}
+	return p.Context().CurrentJob, nil
 }

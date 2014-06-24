@@ -106,6 +106,6 @@ type Context struct {
 	PoolCh          chan bool // pool available
 }
 
-func (ctx *Context) CurrentJob() *Job {
+func (ctx *Context) CurrentJob() (*Job, error) {
 	return ctx.pool.CurrentJob()
 }
