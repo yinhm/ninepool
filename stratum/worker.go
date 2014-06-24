@@ -1,6 +1,7 @@
 package stratum
 
 import (
+	"errors"
 	"github.com/yinhm/ninepool/birpc"
 	"log"
 	"sync"
@@ -114,5 +115,8 @@ type Context struct {
 }
 
 func (ctx *Context) CurrentJob() (*Job, error) {
+	if ctx.pool == nil {
+		return nil, errors.New("no pool avilable")
+	}
 	return ctx.pool.CurrentJob()
 }

@@ -162,8 +162,9 @@ func (s *StratumServer) ActivePool(order *Order, pool *Pool, errch chan error) {
 
 func (s *StratumServer) Shutdown() {
 	s.stopListen()
-	s.stopPools()
+	// TODO: move stop worker to pool?
 	s.stopWorkers()
+	s.stopPools()
 }
 
 func (s *StratumServer) stopListen() {
