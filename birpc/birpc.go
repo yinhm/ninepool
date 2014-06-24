@@ -272,11 +272,16 @@ func (e *Endpoint) Serve() error {
 	}
 }
 
+// Wait server request done then close connection.
+func (e *Endpoint) WaitServer() {
+	e.server.running.Wait()
+}
+
 // Wait server request done then close connection. Useful for server
 // close connection when auth failed.
 func (e *Endpoint) WaitClose() {
 	go func() {
-		e.server.running.Wait()
+		e.WaitServer()
 		e.codec.Close()
 	}()
 }
