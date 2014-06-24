@@ -112,3 +112,31 @@ func TestSubscribeNoPool(t *testing.T) {
 
 	closeServer()
 }
+
+func TestSetDifficulty(t *testing.T) {
+	initServer()
+	addOrder()
+
+	errch := make(chan error)
+	client := stratum.NewClient(cli, errch)
+
+	err := client.Subscribe()
+	if err != nil {
+		t.Fatalf("Failed on subscribe: %v", err)
+	}
+
+	if client.Active != true {
+		t.Fatalf("Client not active.")
+	}
+
+	time.Sleep(20 * time.Millisecond) // wait for notification
+	ctx := client.Context()
+	if ctx.Difficulty != stratum.DefaultDifficulty {
+		t.Fatalf("mining.set_difficulty not received.")
+	}
+	if ctx.CurrentJob.JobId != "bf" {
+		t.Fatalf("mining.notify not received.")
+	}
+
+	closeServer()
+}

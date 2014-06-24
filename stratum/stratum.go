@@ -10,7 +10,6 @@ import (
 	"log"
 	"math"
 	"sync"
-	"time"
 	"unsafe"
 )
 
@@ -45,7 +44,7 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 		return &birpc.Error{ErrorUnknown, "No pool available", nil}
 	}
 
-	subId := randhash()
+	subId := randhash() // unique across server
 	context.SubId = subId
 
 	nonce1 := context.pool.nextNonce1()
@@ -67,24 +66,31 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 	context.ExtraNonce1 = nonce1
 	context.ExtraNonce2Size = nonce2Size
 
-	go m.notify(e)
+	go m.notifyAfterSubscribe(e)
 
 	return nil
 }
 
 // server mining.notify -> client
-func (m *Mining) notify(e *birpc.Endpoint) {
-	time.Sleep(50 * time.Millisecond)
+func (m *Mining) notifyAfterSubscribe(e *birpc.Endpoint) {
+	e.WaitServer()
 
 	context := e.Context.(*Context)
 
+	// set difficulty
+	var msg birpc.Message
+	msg.ID = 0
+	msg.Func = "mining.set_difficulty"
+	msg.Args = &birpc.List{DefaultDifficulty}
+	e.Notify(&msg)
+
 	job, err := context.CurrentJob()
 	if err != nil {
+		log.Printf("No job to do, return")
 		e.Close()
 		return
 	}
 
-	var msg birpc.Message
 	msg.ID = 0
 	msg.Func = "mining.notify"
 	msg.Args = job.tolist()
@@ -118,8 +124,13 @@ func (m *Mining) Notify(args *interface{}, reply *interface{}, e *birpc.Endpoint
 }
 
 // mining.set_difficulty notification from upstream
-func (m *Mining) Set_difficulty(req *interface{}, reply *interface{}) error {
-	log.Printf("mining.set_difficulty\n")
+func (m *Mining) Set_difficulty(args *interface{}, reply *interface{}, e *birpc.Endpoint) error {
+	ctx := e.Context.(*ClientContext)
+	ctx.PrevDifficulty = ctx.Difficulty
+
+	params := birpc.List((*args).([]interface{}))
+	ctx.Difficulty = params[0].(float64)
+	log.Printf("mining.set_difficulty to %.3f\n", ctx.Difficulty)
 	return nil
 }
 

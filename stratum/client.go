@@ -89,6 +89,7 @@ func (c *StratumClient) Subscribe() (err error) {
 	data := (birpc.List)(*reply)
 
 	context := c.Context()
+	context.SubId = data[1].(string)
 	context.ExtraNonce1 = data[1].(string)
 	if context.ExtraNonce1 == "" {
 		return errors.New("Failed to get nonce1")
@@ -100,6 +101,7 @@ func (c *StratumClient) Subscribe() (err error) {
 	}
 
 	c.Active = true
+	log.Printf("Client subscribed %s", context.ExtraNonce1)
 
 	return nil
 }
