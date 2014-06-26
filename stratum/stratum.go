@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -172,7 +173,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	params := (*args).([]interface{})
 	username := params[0].(string)
 	jobId := params[1].(string)
-	extranonce2 := params[2].(string)
+	extraNonce2 := params[2].(string)
 	ntime := params[3].(string)
 	nonce := params[4].(string)
 
@@ -192,17 +193,38 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 
 	// check extranonce2 size
 
-	err2 := m.processShare(username, jobId, extranonce2, ntime, nonce)
+	submitTime := time.Now().Unix()
+  if len(extraNonce2) / 2 != context.ExtraNonce2Size {
+    return m.rpcUnknownError(e, ErrorUnknown, "incorrect size of extranonce2")
+	}
+
+	// var job = this.validJobs[jobId];
+	_, err := context.CurrentJob()
+	if err != nil {
+		return m.rpcError(e, ErrorJobNotFound)
+	}
+
+  if (len(ntime) != 8) {
+    return m.rpcUnknownError(e, ErrorUnknown, "incorrect size of ntime")
+  }
+
+	ntimeInt, _ := DecodeNtime(ntime)
+  if ntimeInt > submitTime + 7200 {
+		return m.rpcUnknownError(e, ErrorUnknown, "ntime out of range")
+  }
+
+	err2 := m.processShare(username, jobId, extraNonce2, ntime, nonce)
 	if err2 != nil {
 		// m.ban()
 		return err2
 	}
 
 	*reply = true
+	log.Printf("share accepted: %v\n", jobId)
 	return nil
 }
 
-func (m *Mining) processShare(username, jobId, extranonce2, ntime, nonce string) error {
+func (m *Mining) processShare(username, jobId, extraNonce2, ntime, nonce string) error {
 	log.Printf("share accepted: %v\n", jobId)
 	return nil
 }

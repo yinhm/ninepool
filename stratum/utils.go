@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/hex"
+	"strconv"
 )
 
 func randhash() string {
@@ -13,4 +14,8 @@ func randhash() string {
 	h := sha1.New()
 	h.Write(randbytes)
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func DecodeNtime(ntime string) (n int64, err error) {
+	return strconv.ParseInt(ntime, 16, 64)
 }

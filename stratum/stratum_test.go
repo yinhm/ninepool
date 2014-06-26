@@ -39,3 +39,10 @@ func TestProxyExtraNonceCounter(t *testing.T) {
 		t.Errorf("incorrect Nonce2Size")
 	}
 }
+
+func TestDecodeNtime(t *testing.T) {
+	ntime, err := stratum.DecodeNtime("504e86ed")
+	if err !=nil || ntime != int64(1347323629) {
+		t.Errorf("failed on parse ntime")
+	}
+}
