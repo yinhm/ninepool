@@ -39,7 +39,7 @@ type List []interface{}
 // Error is the on-wire description of an error that occurred while
 // serving the method call.
 type Error struct {
-	Code int64 `json:"code,omitempty"`
+	Code int   `json:"code,omitempty"`
 	Msg string `json:"message,omitempty"`
 	Data interface{} `json:"data,omitempty"`
 

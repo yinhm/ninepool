@@ -34,6 +34,18 @@ func (s *Stratum) close() {
 
 type Mining struct{}
 
+
+func (m *Mining) rpcError(e *birpc.Endpoint, errCode int) *birpc.Error {
+	e.WaitClose()
+	txt, _ := errorText[errCode]
+	return &birpc.Error{errCode, txt, nil}
+}
+
+func (m *Mining) rpcUnknownError(e *birpc.Endpoint, errCode int, errMsg string) *birpc.Error {
+	e.WaitClose()
+	return &birpc.Error{errCode, errMsg, nil}
+}
+
 func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoint) error {
 	context := e.Context.(*Context)
 
@@ -165,22 +177,24 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	nonce := params[4].(string)
 
 	context := e.Context.(*Context)
+
 	// verify authentation
 	if context.Authorized != true || username != context.Username {
-		e.WaitClose()
-		txt, _ := errorText[ErrorUnauthorizedWorker]
-		return &birpc.Error{ErrorUnauthorizedWorker, txt, nil}
+		// m.ban()
+		return m.rpcError(e, ErrorUnauthorizedWorker)
+	}
+
+	// check extranonce1 present
+	if context.ExtraNonce1 == "" {
+		// m.ban()
+		return m.rpcError(e, ErrorUnsubscribedWorker)
 	}
 
 	// check extranonce2 size
-	if context.ExtraNonce1 == "" {
-		e.WaitClose()
-		txt, _ := errorText[ErrorUnsubscribedWorker]
-		return &birpc.Error{ErrorUnsubscribedWorker, txt, nil}
-	}
 
 	err2 := m.processShare(username, jobId, extranonce2, ntime, nonce)
 	if err2 != nil {
+		// m.ban()
 		return err2
 	}
 

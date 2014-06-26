@@ -127,7 +127,7 @@ func (c *codec) UnmarshalError(raw *json.RawMessage, rerr *birpc.Error) error {
 	}
 	d := (birpc.List)(*to)
 
-	rerr.Code = int64(d[0].(float64))
+	rerr.Code = int(d[0].(float64))
 	rerr.Msg = d[1].(string)
 	rerr.Data = d[2]
 	return nil
