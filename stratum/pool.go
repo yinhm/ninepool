@@ -15,6 +15,7 @@ type Pool struct {
 	order    *Order
 	upstream *StratumClient
 	workers  map[*Worker]bool
+	jobs     map[string]*Job
 	active   bool
 	stable   bool
 	closing  bool
@@ -72,7 +73,7 @@ func (p *Pool) Serve(timeout time.Duration) {
 		ctx := p.Context()
 		select {
 		case job := <-ctx.JobCh:
-			p.broadcastMiningJob(&job)
+			p.onNewJob(&job)
 		case _ = <-ctx.ShutdownCh:
 			p.Shutdown()
 			break
@@ -152,7 +153,14 @@ func (p *Pool) CurrentJob() (*Job, error) {
 	return p.Context().CurrentJob, nil
 }
 
-func (p *Pool) broadcastMiningJob(job *Job) {
+func (p *Pool) onNewJob(job *Job) {
+	if job.CleanJobs {
+
+	}
+}
+
+// broadcast mining jobs
+func (p *Pool) broadcast(job *Job) {
 	for worker, _ := range p.workers {
 		worker.sendJob(job)
 	}
