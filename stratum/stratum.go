@@ -35,16 +35,15 @@ func (s *Stratum) close() {
 
 type Mining struct{}
 
-
 func (m *Mining) rpcError(e *birpc.Endpoint, errCode int) *birpc.Error {
 	e.WaitClose()
 	txt, _ := errorText[errCode]
 	return &birpc.Error{errCode, txt, nil}
 }
 
-func (m *Mining) rpcUnknownError(e *birpc.Endpoint, errCode int, errMsg string) *birpc.Error {
+func (m *Mining) rpcUnknownError(e *birpc.Endpoint, errMsg string) *birpc.Error {
 	e.WaitClose()
-	return &birpc.Error{errCode, errMsg, nil}
+	return &birpc.Error{ErrorUnknown, errMsg, nil}
 }
 
 func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoint) error {
@@ -194,8 +193,8 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	// check extranonce2 size
 
 	submitTime := time.Now().Unix()
-  if len(extraNonce2) / 2 != context.ExtraNonce2Size {
-    return m.rpcUnknownError(e, ErrorUnknown, "incorrect size of extranonce2")
+	if len(extraNonce2)/2 != context.ExtraNonce2Size {
+		return m.rpcUnknownError(e, "incorrect size of extranonce2")
 	}
 
 	// var job = this.validJobs[jobId];
@@ -204,14 +203,18 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 		return m.rpcError(e, ErrorJobNotFound)
 	}
 
-  if (len(ntime) != 8) {
-    return m.rpcUnknownError(e, ErrorUnknown, "incorrect size of ntime")
-  }
+	if len(ntime) != 8 {
+		return m.rpcUnknownError(e, "incorrect size of ntime")
+	}
 
 	ntimeInt, _ := DecodeNtime(ntime)
-  if ntimeInt > submitTime + 7200 {
-		return m.rpcUnknownError(e, ErrorUnknown, "ntime out of range")
-  }
+	if ntimeInt > submitTime+7200 {
+		return m.rpcUnknownError(e, "ntime out of range")
+	}
+
+	if len(nonce) != 8 {
+		return m.rpcUnknownError(e, "incorrect size of nonce")
+	}
 
 	err2 := m.processShare(username, jobId, extraNonce2, ntime, nonce)
 	if err2 != nil {
