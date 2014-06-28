@@ -228,3 +228,63 @@ func TestSubmit(t *testing.T) {
 
 	closeServer()
 }
+
+func TestNewJob(t *testing.T) {
+	initServer()
+	addOrder()
+
+	errch := make(chan error)
+	client := stratum.NewClient(cli, errch)
+
+	err := client.Subscribe()
+	if err != nil {
+		t.Fatalf("Failed on subscribe: %v", err)
+	}
+
+	ctx := client.Context()
+	err = client.Authorize("1HLoD9E4SDFFPDiYfNYnkBLQ85Y51J3Zb1", "x")
+	if !ctx.Authorized {
+		t.Fatalf("mining authorize failed")
+	}
+
+	time.Sleep(20 * time.Millisecond) // wait for job
+	if ctx.CurrentJob.JobId != "bf" {
+		t.Fatalf("mining.notify not received.")
+	}
+
+	prevJobId := ctx.CurrentJob.JobId
+	// push newjob
+	orderId := 1
+	pool, ok := stratum.FindPool(orderId)
+	if !ok {
+		t.Fatalf("pool not found.")
+	}
+	upstramCtx := pool.Context()
+
+	list := birpc.List{
+		"foo",
+		"4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
+		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
+		"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000",
+		birpc.List{},
+		"00000002",
+		"1c2ac4af",
+		"504e86b9",
+		false,
+	}
+	upstramCtx.JobCh <- stratum.NewJob(list)
+
+	time.Sleep(20 * time.Millisecond) // wait for server push new job
+	if ctx.CurrentJob.JobId != "foo" {
+		t.Fatalf("mining.notify not received.")
+	}
+
+	// submit previous job
+	err = client.Submit(ctx.Username, prevJobId,
+		"0001", "504e86ed", "b2957c02")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	closeServer()
+}

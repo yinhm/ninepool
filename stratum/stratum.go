@@ -188,9 +188,9 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 		return m.rpcUnknownError("incorrect size of extranonce2")
 	}
 
-	// var job = this.validJobs[jobId];
-	job, err := context.CurrentJob()
-	if err != nil {
+	worker, _ := DefaultServer.workers[e]
+	job, ok := worker.context.pool.jobs[jobId]
+	if !ok {
 		return m.rpcError(ErrorJobNotFound)
 	}
 
@@ -208,7 +208,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	}
 
 	submission := context.ExtraNonce1 + extraNonce2 + ntime + nonce
-	if err = job.submit(submission); err != nil {
+	if err := job.submit(submission); err != nil {
 		return m.rpcError(ErrorDuplicateShare)
 	}
 

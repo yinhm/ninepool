@@ -46,8 +46,8 @@ func NewPool(order *Order, errch chan error) (pool *Pool, err error) {
 	return NewPoolWithConn(order, upstream)
 }
 
-func FindPool(pid uint64) (*Pool, bool) {
-	p, ok := DefaultServer.findPool(pid)
+func FindPool(pid int) (*Pool, bool) {
+	p, ok := DefaultServer.findPool(uint64(pid))
 	return p, ok
 }
 
@@ -161,6 +161,7 @@ func (p *Pool) newJob(job *Job) {
 	}
 	p.jobs[job.JobId] = job
 	p.CurrentJob = job
+	go p.broadcast(job)
 }
 
 // broadcast mining jobs
