@@ -235,7 +235,7 @@ func (e *Endpoint) serve_response(msg *Message) error {
 			}
 		}
 	} else {
-		call.Error = rpc.ServerError(msg.Error.Msg)
+		call.Error = msg.Error
 	}
 
 	// notify the caller, but never block
