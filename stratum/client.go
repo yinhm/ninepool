@@ -2,7 +2,6 @@ package stratum
 
 import (
 	"errors"
-	"fmt"
 	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/birpc/jsonmsg"
@@ -128,9 +127,9 @@ func (c *StratumClient) Submit(username, jobId, extranonce2, ntime, nonce string
 	params := birpc.List{username, jobId, extranonce2, ntime, nonce}
 	err := c.endpoint.Call("mining.submit", params, &accepted)
 	if err != nil {
-		return errors.New(fmt.Sprintf("share rejected, %s.", err.Error()))
+		log.Printf("share rejected, %s.", err.Error())
+		return err
 	}
-
 	log.Printf("share accepted: %v\n", accepted)
 	return nil
 }

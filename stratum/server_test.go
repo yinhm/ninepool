@@ -43,7 +43,8 @@ func addOrder() {
 	upstream := stratum.NewClient(pcli, errch)
 	ctx := upstream.Context()
 	ctx.ExtraNonce2Size = 4
-	ctx.CurrentJob = &stratum.Job{
+
+	list := birpc.List{
 		"bf",
 		"4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
 		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
@@ -54,6 +55,7 @@ func addOrder() {
 		"504e86b9",
 		false,
 	}
+	ctx.CurrentJob = stratum.NewJob(list)
 
 	p, _ := stratum.NewPoolWithConn(order, upstream)
 	server.ActivePool(order, p, errch)
@@ -215,6 +217,13 @@ func TestSubmit(t *testing.T) {
 		"0001", "504e86ed", "b2957c02")
 	if err != nil {
 		t.Fatalf(err.Error())
+	}
+
+	err = client.Submit(ctx.Username, ctx.CurrentJob.JobId,
+		"0001", "504e86ed", "b2957c02")
+	err2 := err.(*birpc.Error)
+	if err2 == nil || err2.Code != stratum.ErrorDuplicateShare {
+		t.Fatalf("duplicated share got accepted.")
 	}
 
 	closeServer()

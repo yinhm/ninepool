@@ -3,6 +3,7 @@ package stratum
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"github.com/conformal/btcnet"
 	"github.com/conformal/btcutil"
 	"github.com/tv42/topic"
@@ -35,14 +36,12 @@ func (s *Stratum) close() {
 
 type Mining struct{}
 
-func (m *Mining) rpcError(e *birpc.Endpoint, errCode int) *birpc.Error {
-	e.WaitClose()
+func (m *Mining) rpcError(errCode int) *birpc.Error {
 	txt, _ := errorText[errCode]
 	return &birpc.Error{errCode, txt, nil}
 }
 
-func (m *Mining) rpcUnknownError(e *birpc.Endpoint, errMsg string) *birpc.Error {
-	e.WaitClose()
+func (m *Mining) rpcUnknownError(errMsg string) *birpc.Error {
 	return &birpc.Error{ErrorUnknown, errMsg, nil}
 }
 
@@ -181,39 +180,46 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	// verify authentation
 	if context.Authorized != true || username != context.Username {
 		// m.ban()
-		return m.rpcError(e, ErrorUnauthorizedWorker)
+		e.WaitClose()
+		return m.rpcError(ErrorUnauthorizedWorker)
 	}
 
 	// check extranonce1 present
 	if context.ExtraNonce1 == "" {
 		// m.ban()
-		return m.rpcError(e, ErrorUnsubscribedWorker)
+		e.WaitClose()
+		return m.rpcError(ErrorUnsubscribedWorker)
 	}
 
 	// check extranonce2 size
 
 	submitTime := time.Now().Unix()
 	if len(extraNonce2)/2 != context.ExtraNonce2Size {
-		return m.rpcUnknownError(e, "incorrect size of extranonce2")
+		return m.rpcUnknownError("incorrect size of extranonce2")
 	}
 
 	// var job = this.validJobs[jobId];
-	_, err := context.CurrentJob()
+	job, err := context.CurrentJob()
 	if err != nil {
-		return m.rpcError(e, ErrorJobNotFound)
+		return m.rpcError(ErrorJobNotFound)
 	}
 
 	if len(ntime) != 8 {
-		return m.rpcUnknownError(e, "incorrect size of ntime")
+		return m.rpcUnknownError("incorrect size of ntime")
 	}
 
 	ntimeInt, _ := DecodeNtime(ntime)
 	if ntimeInt > submitTime+7200 {
-		return m.rpcUnknownError(e, "ntime out of range")
+		return m.rpcUnknownError("ntime out of range")
 	}
 
 	if len(nonce) != 8 {
-		return m.rpcUnknownError(e, "incorrect size of nonce")
+		return m.rpcUnknownError("incorrect size of nonce")
+	}
+
+	submission := context.ExtraNonce1 + extraNonce2 + ntime + nonce
+	if err = job.submit(submission); err != nil {
+		return m.rpcError(ErrorDuplicateShare)
 	}
 
 	err2 := m.processShare(username, jobId, extraNonce2, ntime, nonce)
@@ -354,6 +360,24 @@ type Job struct {
 	Nbits        string
 	Ntime        string
 	CleanJobs    bool
+
+	lock   sync.Mutex
+	shares map[string]bool
+}
+
+func NewJob(list birpc.List) *Job {
+	return &Job{
+		JobId:        list[0].(string),
+		PrevHash:     list[1].(string),
+		Coinb1:       list[2].(string),
+		Coinb2:       list[3].(string),
+		MerkleBranch: list[4].(birpc.List),
+		Version:      list[5].(string),
+		Nbits:        list[6].(string),
+		Ntime:        list[7].(string),
+		CleanJobs:    list[8].(bool),
+		shares:       make(map[string]bool),
+	}
 }
 
 func (job *Job) tolist() *birpc.List {
@@ -368,4 +392,14 @@ func (job *Job) tolist() *birpc.List {
 		job.Ntime,
 		job.CleanJobs,
 	}
+}
+
+func (job *Job) submit(share string) error {
+	if _, ok := job.shares[share]; ok {
+		return errors.New("duplicated share")
+	}
+	job.lock.Lock()
+	job.shares[share] = true
+	job.lock.Unlock()
+	return nil
 }
