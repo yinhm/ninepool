@@ -160,6 +160,11 @@ func (s *StratumServer) ActivePool(order *Order, pool *Pool, errch chan error) {
 	s.lock.Unlock()
 }
 
+func (s *StratumServer) findPool(oid uint64) (*Pool, bool) {
+	p, ok := s.pools[oid]
+	return p, ok
+}
+
 func (s *StratumServer) Shutdown() {
 	s.stopListen()
 	// TODO: move stop worker to pool?

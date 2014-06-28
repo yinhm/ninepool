@@ -21,6 +21,7 @@ func NewClient(conn net.Conn, errch chan error) *StratumClient {
 // Stratum client context, passed to birpc
 type ClientContext struct {
 	CurrentJob      *Job
+	pid             uint64 // pool id
 	SubId           string
 	Username        string
 	Password        string
@@ -31,7 +32,7 @@ type ClientContext struct {
 	PrevDifficulty  float64
 	Difficulty      float64
 	RemoteAddress   string
-	JobCh           chan Job
+	JobCh           chan *Job
 	ShutdownCh      chan bool
 }
 
@@ -59,7 +60,7 @@ func NewStratumClient() *StratumClient {
 func (c *StratumClient) Serve(conn io.ReadWriteCloser, errch chan error) {
 	c.endpoint = birpc.NewEndpoint(jsonmsg.NewCodec(conn), c.registry)
 	c.endpoint.Context = &ClientContext{
-		JobCh:      make(chan Job, 1),
+		JobCh:      make(chan *Job, 1),
 		ShutdownCh: make(chan bool, 1),
 	}
 	go func() {

@@ -114,21 +114,11 @@ func (m *Mining) Notify(args *interface{}, reply *interface{}, e *birpc.Endpoint
 	log.Printf("mining.notify\n")
 
 	params := birpc.List((*args).([]interface{}))
-	job := Job{
-		JobId:        params[0].(string),
-		PrevHash:     params[1].(string),
-		Coinb1:       params[2].(string),
-		Coinb2:       params[3].(string),
-		MerkleBranch: birpc.List(params[4].([]interface{})),
-		Version:      params[5].(string),
-		Nbits:        params[6].(string),
-		Ntime:        params[7].(string),
-		CleanJobs:    params[8].(bool),
-	}
+	params[4] = birpc.List(params[4].([]interface{})) // MerkleBranch
+	job := NewJob(params)
 
 	ctx := e.Context.(*ClientContext)
-	ctx.CurrentJob = &job
-
+	ctx.CurrentJob = job
 	ctx.JobCh <- job
 
 	return nil

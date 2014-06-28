@@ -10,15 +10,17 @@ import (
 )
 
 type Pool struct {
-	lock     sync.Mutex
-	address  string
-	order    *Order
-	upstream *StratumClient
-	workers  map[*Worker]bool
-	jobs     map[string]*Job
-	active   bool
-	stable   bool
-	closing  bool
+	lock       sync.Mutex
+	id         uint64
+	address    string
+	order      *Order
+	upstream   *StratumClient
+	workers    map[*Worker]bool
+	jobs       map[string]*Job
+	CurrentJob *Job
+	active     bool
+	stable     bool
+	closing    bool
 
 	nonceCounter NonceCounter
 }
@@ -44,6 +46,11 @@ func NewPool(order *Order, errch chan error) (pool *Pool, err error) {
 	return NewPoolWithConn(order, upstream)
 }
 
+func FindPool(pid uint64) (*Pool, bool) {
+	p, ok := DefaultServer.findPool(pid)
+	return p, ok
+}
+
 func NewPoolWithConn(order *Order, upstream *StratumClient) (*Pool, error) {
 	context := upstream.Context()
 	if context.ExtraNonce2Size != ExtraNonce2Size+ExtraNonce3Size {
@@ -52,16 +59,19 @@ func NewPoolWithConn(order *Order, upstream *StratumClient) (*Pool, error) {
 	}
 
 	p := &Pool{
+		id:       order.Id,
 		address:  order.Address(),
 		order:    order,
 		upstream: upstream,
 		workers:  make(map[*Worker]bool),
+		jobs:     make(map[string]*Job),
 	}
 
 	p.nonceCounter = NewProxyExtraNonceCounter(context.ExtraNonce1, ExtraNonce2Size, ExtraNonce3Size)
 
 	go p.Serve(DefaultPoolTimeout)
 
+	context.pid = p.id
 	return p, nil
 }
 
@@ -73,7 +83,7 @@ func (p *Pool) Serve(timeout time.Duration) {
 		ctx := p.Context()
 		select {
 		case job := <-ctx.JobCh:
-			p.onNewJob(&job)
+			p.newJob(job)
 		case _ = <-ctx.ShutdownCh:
 			p.Shutdown()
 			break
@@ -145,18 +155,12 @@ func (p *Pool) nonce2Size() int {
 	return p.nonceCounter.Nonce2Size()
 }
 
-func (p *Pool) CurrentJob() (*Job, error) {
-	ctx := p.Context()
-	if ctx == nil {
-		return nil, errors.New("Closed upstream.")
-	}
-	return p.Context().CurrentJob, nil
-}
-
-func (p *Pool) onNewJob(job *Job) {
+func (p *Pool) newJob(job *Job) {
 	if job.CleanJobs {
-
+		p.jobs = make(map[string]*Job)
 	}
+	p.jobs[job.JobId] = job
+	p.CurrentJob = job
 }
 
 // broadcast mining jobs

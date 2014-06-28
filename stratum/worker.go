@@ -128,5 +128,5 @@ func (ctx *Context) CurrentJob() (*Job, error) {
 	if ctx.pool == nil {
 		return nil, errors.New("no pool avilable")
 	}
-	return ctx.pool.CurrentJob()
+	return ctx.pool.CurrentJob, nil
 }
