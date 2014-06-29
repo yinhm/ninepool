@@ -182,7 +182,6 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	}
 
 	// check extranonce2 size
-
 	submitTime := time.Now().Unix()
 	if len(extraNonce2)/2 != context.ExtraNonce2Size {
 		return m.rpcUnknownError("incorrect size of extranonce2")
