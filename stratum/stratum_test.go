@@ -116,4 +116,12 @@ func TestSerializeHeader(t *testing.T) {
 	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
 	headerHash, _ := header.BlockSha()
 	t.Errorf("header hash: %s", headerHash)
+
+  // The block is solved when the new block hash is less
+  // than the target difficulty.  Yay!
+  // if btcchain.ShaHashToBig(&hash).Cmp(targetDifficulty) <= 0 {
+  //   m.updateHashes <- hashesCompleted
+  //   return true
+  // }
+
 }
