@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/conformal/btcnet"
 	"github.com/conformal/btcutil"
+	"github.com/conformal/btcwire"
 	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
 	"log"
@@ -115,7 +116,11 @@ func (m *Mining) Notify(args *interface{}, reply *interface{}, e *birpc.Endpoint
 
 	params := birpc.List((*args).([]interface{}))
 	params[4] = birpc.List(params[4].([]interface{})) // MerkleBranch
-	job := NewJob(params)
+	job, err := NewJob(params)
+	if err != nil {
+		log.Printf("error in build job: %s\n", err.Error())
+		return err
+	}
 
 	ctx := e.Context.(*ClientContext)
 	ctx.CurrentJob = job
@@ -334,7 +339,7 @@ func (ct *ProxyExtraNonceCounter) Nonce2Size() int {
 // prevhash - Hash of previous block.
 // coinb1 - Initial part of coinbase transaction.
 // coinb2 - Final part of coinbase transaction.
-// merkle_branch - List of hashes, will be used for calculation of merkle root. This is not a list of all transactions, it only contains prepared hashes of steps of merkle tree algorithm. Please read some materials for understanding how merkle trees calculation works. Unfortunately this example don't have any step hashes included, my bad!
+// merkle_branch - List of hashes, will be used for calculation of merkle root. This is not a list of all transactions, it only contains prepared hashes of steps of merkle tree algorithm.
 // version - Bitcoin block version.
 // nbits - Encoded current network difficulty
 // ntime - Current ntime/
@@ -344,7 +349,7 @@ type Job struct {
 	PrevHash     string
 	Coinb1       string
 	Coinb2       string
-	MerkleBranch birpc.List
+	MerkleBranch []*btcwire.ShaHash
 	Version      string
 	Nbits        string
 	Ntime        string
@@ -354,19 +359,30 @@ type Job struct {
 	shares map[string]bool
 }
 
-func NewJob(list birpc.List) *Job {
-	return &Job{
+func NewJob(list birpc.List) (*Job, error) {
+	hashList := list[4].(birpc.List)
+	merkleBranches := make([]*btcwire.ShaHash, len(hashList))
+	for i, h := range hashList {
+		txHash, err := btcwire.NewShaHashFromStr(h.(string))
+		if err != nil {
+			return nil, err
+		}
+		merkleBranches[i] = txHash
+	}
+
+	job := &Job{
 		JobId:        list[0].(string),
 		PrevHash:     list[1].(string),
 		Coinb1:       list[2].(string),
 		Coinb2:       list[3].(string),
-		MerkleBranch: list[4].(birpc.List),
+		MerkleBranch: merkleBranches,
 		Version:      list[5].(string),
 		Nbits:        list[6].(string),
 		Ntime:        list[7].(string),
 		CleanJobs:    list[8].(bool),
 		shares:       make(map[string]bool),
 	}
+	return job, nil
 }
 
 func (job *Job) tolist() *birpc.List {

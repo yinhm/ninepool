@@ -55,7 +55,8 @@ func addOrder() {
 		"504e86b9",
 		false,
 	}
-	ctx.JobCh <- stratum.NewJob(list)
+	newJob, _ := stratum.NewJob(list)
+	ctx.JobCh <- newJob
 
 	p, _ := stratum.NewPoolWithConn(order, upstream)
 	server.ActivePool(order, p, errch)
@@ -272,7 +273,8 @@ func TestNewJob(t *testing.T) {
 		"504e86b9",
 		false,
 	}
-	upstramCtx.JobCh <- stratum.NewJob(list)
+	newJob, _ := stratum.NewJob(list)
+	upstramCtx.JobCh <- newJob
 
 	time.Sleep(20 * time.Millisecond) // wait for server push new job
 	if ctx.CurrentJob.JobId != "foo" {
