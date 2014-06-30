@@ -8,6 +8,7 @@ import (
 	"github.com/conformal/fastsha256"
 	"math"
 	"strconv"
+	"time"
 )
 
 func randhash() string {
@@ -19,8 +20,24 @@ func randhash() string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func DecodeNtime(ntime string) (n int64, err error) {
+func HexToInt64(ntime string) (n int64, err error) {
 	return strconv.ParseInt(ntime, 16, 64)
+}
+
+func HexToInt32(version string) (n int32, err error) {
+	v, err := strconv.ParseInt(version, 16, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(v), nil
+}
+
+func HexToUint32(version string) (n uint32, err error) {
+	v, err := strconv.ParseUint(version, 16, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(v), nil
 }
 
 func DoubleSha256(b []byte) []byte {
@@ -113,4 +130,39 @@ func BuildMerkleTree(mkBranches []*btcwire.ShaHash) []*btcwire.ShaHash {
 func BuildMerkleRoot(mkBranches []*btcwire.ShaHash) *btcwire.ShaHash {
 	merkles := BuildMerkleTree(mkBranches)
 	return merkles[len(merkles)-1]
+}
+
+func SerializeHeader(job *Job, merkleRoot *btcwire.ShaHash, ntime string, nonce string) (*btcwire.BlockHeader, error) {
+	Version, err := HexToInt32(job.Version)
+	if err != nil {
+		return nil, err
+	}
+	Bits, err := HexToUint32(job.Nbits)
+	if err != nil {
+		return nil, err
+	}
+	Nonce, err := HexToUint32(nonce)
+	if err != nil {
+		return nil, err
+	}
+	PrevHash, err := btcwire.NewShaHashFromStr(job.PrevHash)
+	if err != nil {
+		return nil, err
+	}
+	tsUnix, err := HexToInt64(ntime)
+	if err != nil {
+		return nil, err
+	}
+	Timestamp := time.Unix(tsUnix, 0)
+
+	// https://en.bitcoin.it/wiki/Protocol_specification#Block_Headers
+	header := &btcwire.BlockHeader{
+		Version:    Version,
+		PrevBlock:  *PrevHash,
+		MerkleRoot: *merkleRoot,
+		Timestamp:  Timestamp,
+		Bits:       Bits,
+		Nonce:      Nonce,
+	}
+	return header, nil
 }

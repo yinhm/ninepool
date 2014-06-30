@@ -2,6 +2,7 @@ package stratum_test
 
 import (
 	"github.com/conformal/btcwire"
+	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/stratum"
 	"testing"
 )
@@ -41,10 +42,17 @@ func TestProxyExtraNonceCounter(t *testing.T) {
 	}
 }
 
-func TestDecodeNtime(t *testing.T) {
-	ntime, err := stratum.DecodeNtime("504e86ed")
+func TestHexToInt64(t *testing.T) {
+	ntime, err := stratum.HexToInt64("504e86ed")
 	if err != nil || ntime != int64(1347323629) {
 		t.Errorf("failed on parse ntime")
+	}
+}
+
+func TestParseInt32(t *testing.T) {
+	version, err := stratum.HexToInt32("00000002")
+	if err != nil || version != int32(2) {
+		t.Errorf("failed on parse version")
 	}
 }
 
@@ -84,4 +92,28 @@ func TestMerkleRoot(t *testing.T) {
 	if !expected.IsEqual(mkRoot) {
 		t.Errorf("Merkle root hash not match:\n%s\n%s", mkRoot, expected)
 	}
+}
+
+func TestSerializeHeader(t *testing.T) {
+	// http://www.righto.com/2014/02/bitcoin-mining-hard-way-algorithms.html
+	list := birpc.List{
+		"58af8d8c",
+		"975b9717f7d18ec1f2ad55e2559b5997b8da0e3317c803780000000100000000",
+		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4803636004062f503253482f04428b055308",
+		"2e522cfabe6d6da0bd01f57abe963d25879583eea5ea6f08f83e3327eba9806b14119718cbb1cf04000000000000000000000001fb673495000000001976a91480ad90d403581fa3bf46086a91b2d9d4125db6c188ac00000000",
+		birpc.List{"ea9da84d55ebf07f47def6b9b35ab30fc18b6e980fc618f262724388f2e9c591", "f8578e6b5900de614aabe563c9622a8f514e11d368caa78890ac2ed615a2300c", "1632f2b53febb0a999784c4feb1655144793c4e662226aff64b71c6837430791", "ad4328979dba3e30f11c2d94445731f461a25842523fcbfa53cd42b585e63fcd", "a904a9a41d1c8f9e860ba2b07ba13187b41aa7246f341489a730c6dc6fb42701", "dd7e026ac1fff0feac6bed6872b6964f5ea00bd8913a956e6b2eb7e22363dc5c", "2c3b18d8edff29c013394c28888c6b50ed8733760a3d4d9082c3f1f5a43afa64"},
+		"00000002",
+		"19015f53",
+		"53058b41",
+		false,
+	}
+	job, _ := stratum.NewJob(list)
+	txHashes, _ := stratum.MerkleHashesFromList(list[4])
+	merkleRoot := stratum.BuildMerkleRoot(txHashes)
+	ntime := "53058d7b"
+	nonce := "e8832204"
+
+	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
+	headerHash, _ := header.BlockSha()
+	t.Errorf("header hash: %s", headerHash)
 }

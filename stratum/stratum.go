@@ -202,7 +202,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 		return m.rpcUnknownError("incorrect size of ntime")
 	}
 
-	ntimeInt, _ := DecodeNtime(ntime)
+	ntimeInt, _ := HexToInt64(ntime)
 	if ntimeInt > submitTime+7200 {
 		return m.rpcUnknownError("ntime out of range")
 	}
@@ -360,14 +360,10 @@ type Job struct {
 }
 
 func NewJob(list birpc.List) (*Job, error) {
-	hashList := list[4].(birpc.List)
-	merkleBranches := make([]*btcwire.ShaHash, len(hashList))
-	for i, h := range hashList {
-		txHash, err := btcwire.NewShaHashFromStr(h.(string))
-		if err != nil {
-			return nil, err
-		}
-		merkleBranches[i] = txHash
+	//hashList := list[4].(birpc.List)
+	merkleBranches, err := MerkleHashesFromList(list[4])
+	if err != nil {
+		return nil, err
 	}
 
 	job := &Job{
@@ -383,6 +379,19 @@ func NewJob(list birpc.List) (*Job, error) {
 		shares:       make(map[string]bool),
 	}
 	return job, nil
+}
+
+func MerkleHashesFromList(list interface{}) ([]*btcwire.ShaHash, error) {
+	hashList := list.(birpc.List)
+	merkleBranches := make([]*btcwire.ShaHash, len(hashList))
+	for i, h := range hashList {
+		txHash, err := btcwire.NewShaHashFromStr(h.(string))
+		if err != nil {
+			return nil, err
+		}
+		merkleBranches[i] = txHash
+	}
+	return merkleBranches, nil
 }
 
 func (job *Job) tolist() *birpc.List {
