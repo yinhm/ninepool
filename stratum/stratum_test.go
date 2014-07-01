@@ -1,12 +1,14 @@
 package stratum_test
 
 import (
+	"bytes"
+	"encoding/hex"
 	"github.com/conformal/btcchain"
 	"github.com/conformal/btcwire"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/stratum"
-	"testing"
 	"math/big"
+	"testing"
 )
 
 func TestExtraNonceCounter(t *testing.T) {
@@ -122,17 +124,22 @@ func TestSerializeHeader(t *testing.T) {
 	nonce := "e8832204"
 
 	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
-	headerHash, _ := header.BlockSha()
-	if headerHash.String() != "5d495a2f92a67ac6df4b2f84c7ee76df7bc0633d57394dd8b9c2253f420ddef6" {
-		t.Errorf("wrong header hash %b", headerHash.String())
+	var buf bytes.Buffer
+	_ = header.Serialize(&buf)
+	blockHeaderLen := 80
+	headerStr := hex.EncodeToString(buf.Bytes()[0:blockHeaderLen])
+	expectedHeader := "0200000000000000010000007803c817330edab897599b55e255adf2c18ed1f717975b973fb680fce66f5775231b433c83a161a960fefa798bb7af3712973cb845093b027b8d0553535f0119042283e8"
+	if headerStr != expectedHeader {
+		t.Errorf("Not expected header: %s", headerStr)
 	}
 
-	targetDifficulty := stratum.CompactToBig(uint32(16))
-  // The block is solved when the new block hash is less
-  // than the target difficulty.  Yay!
-  if stratum.ShaHashToBig(&headerHash).Cmp(targetDifficulty) > 0 {
-		t.Errorf("Share is below expected target:\n%s\n%v\n", headerHash, stratum.ShaHashToBig(&headerHash))
-  }
+	headerHash, _ := header.BlockSha()
+	// given little-endian hash string
+	buf2, _ := hex.DecodeString("5d495a2f92a67ac6df4b2f84c7ee76df7bc0633d57394dd8b9c2253f420ddef6")
+	expectedHash, _ := btcwire.NewShaHash(buf2)
+	if !headerHash.IsEqual(expectedHash) {
+		t.Errorf("wrong header hash %v", headerHash.String())
+	}
 
 	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
 	compact := uint32(0x1d00ffff)
@@ -143,7 +150,9 @@ func TestSerializeHeader(t *testing.T) {
 	if diff1.Cmp(diff2) != 0 {
 		t.Errorf("d1 != d2: %v, %v", diff1, diff2)
 	}
-	
+
 	shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
-	t.Errorf("Share diff: %v", shareDiff)
+	if shareDiff.Cmp(big.NewInt(int64(1))) > 0 {
+		t.Errorf("share diff >1")
+	}
 }
