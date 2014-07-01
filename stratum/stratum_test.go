@@ -1,10 +1,12 @@
 package stratum_test
 
 import (
+	"github.com/conformal/btcchain"
 	"github.com/conformal/btcwire"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/stratum"
 	"testing"
+	"math/big"
 )
 
 func TestExtraNonceCounter(t *testing.T) {
@@ -108,20 +110,40 @@ func TestSerializeHeader(t *testing.T) {
 		false,
 	}
 	job, _ := stratum.NewJob(list)
+
 	txHashes, _ := stratum.MerkleHashesFromList(list[4])
 	merkleRoot := stratum.BuildMerkleRoot(txHashes)
+	expected, _ := btcwire.NewShaHashFromStr("023b0945b83c971237afb78b79fafe60a961a1833c431b2375576fe6fc80b63f")
+	if !expected.IsEqual(merkleRoot) {
+		t.Errorf("Merkle root hash does not match.")
+	}
+
 	ntime := "53058d7b"
 	nonce := "e8832204"
 
 	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
 	headerHash, _ := header.BlockSha()
-	t.Errorf("header hash: %s", headerHash)
+	if headerHash.String() != "5d495a2f92a67ac6df4b2f84c7ee76df7bc0633d57394dd8b9c2253f420ddef6" {
+		t.Errorf("wrong header hash %b", headerHash.String())
+	}
 
+	targetDifficulty := stratum.CompactToBig(uint32(16))
   // The block is solved when the new block hash is less
   // than the target difficulty.  Yay!
-  // if btcchain.ShaHashToBig(&hash).Cmp(targetDifficulty) <= 0 {
-  //   m.updateHashes <- hashesCompleted
-  //   return true
-  // }
+  if stratum.ShaHashToBig(&headerHash).Cmp(targetDifficulty) > 0 {
+		t.Errorf("Share is below expected target:\n%s\n%v\n", headerHash, stratum.ShaHashToBig(&headerHash))
+  }
 
+	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	compact := uint32(0x1d00ffff)
+	diff1 := stratum.CompactToBig(compact)
+	hash, _ := btcwire.NewShaHashFromStr("00000000FFFF0000000000000000000000000000000000000000000000000000")
+	diff2 := btcchain.ShaHashToBig(hash)
+
+	if diff1.Cmp(diff2) != 0 {
+		t.Errorf("d1 != d2: %v, %v", diff1, diff2)
+	}
+	
+	shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
+	t.Errorf("Share diff: %v", shareDiff)
 }
