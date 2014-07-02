@@ -236,6 +236,11 @@ func SerializeHeader(job *Job, merkleRoot *btcwire.ShaHash, ntime string, nonce 
 	return header, nil
 }
 
+func HeaderToBig(header *btcwire.BlockHeader) *big.Int {
+	headerHash, _ := header.BlockSha()
+	return ShaHashToBig(&headerHash)
+}
+
 
 // Maximum target?
 //

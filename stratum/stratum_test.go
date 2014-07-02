@@ -156,3 +156,59 @@ func TestSerializeHeader(t *testing.T) {
 		t.Errorf("share diff >1")
 	}
 }
+
+func TestSerializeHeader2(t *testing.T) {
+	// http://mining.bitcoin.cz/stratum-mining#example
+	list := birpc.List{
+		"bf",
+		"4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
+		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
+		"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000",
+		birpc.List{},
+		"00000002",
+		"1c2ac4af",
+		"504e86b9",
+		false,
+	}
+	job, _ := stratum.NewJob(list)
+
+	txHashes, _ := stratum.MerkleHashesFromList(list[4])
+	merkleRoot := stratum.BuildMerkleRoot(txHashes)
+	t.Errorf("Merkle root hash: %s", merkleRoot)
+
+	ntime := "53058d7b"
+	nonce := "e8832204"
+
+	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
+	var buf bytes.Buffer
+	_ = header.Serialize(&buf)
+	blockHeaderLen := 80
+	headerStr := hex.EncodeToString(buf.Bytes()[0:blockHeaderLen])
+	expectedHeader := "0200000000000000010000007803c817330edab897599b55e255adf2c18ed1f717975b973fb680fce66f5775231b433c83a161a960fefa798bb7af3712973cb845093b027b8d0553535f0119042283e8"
+	if headerStr != expectedHeader {
+		t.Errorf("Not expected header: %s", headerStr)
+	}
+
+	headerHash, _ := header.BlockSha()
+	// given little-endian hash string
+	buf2, _ := hex.DecodeString("5d495a2f92a67ac6df4b2f84c7ee76df7bc0633d57394dd8b9c2253f420ddef6")
+	expectedHash, _ := btcwire.NewShaHash(buf2)
+	if !headerHash.IsEqual(expectedHash) {
+		t.Errorf("wrong header hash %v", headerHash.String())
+	}
+
+	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	compact := uint32(0x1d00ffff)
+	diff1 := stratum.CompactToBig(compact)
+	hash, _ := btcwire.NewShaHashFromStr("00000000FFFF0000000000000000000000000000000000000000000000000000")
+	diff2 := btcchain.ShaHashToBig(hash)
+
+	if diff1.Cmp(diff2) != 0 {
+		t.Errorf("d1 != d2: %v, %v", diff1, diff2)
+	}
+
+	shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
+	if shareDiff.Cmp(big.NewInt(int64(1))) > 0 {
+		t.Errorf("share diff >1")
+	}
+}
