@@ -8,3 +8,5 @@
      - NormalWorkerName, or
      - NomalPrefixedWorkerName.subfix
    * warning user if this is not supported;
+ - Authentication should work also for unsubscribed socket. stratum-mining-proxy issues #32
+ - 
