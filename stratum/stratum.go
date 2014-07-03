@@ -77,6 +77,7 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 
 	context.ExtraNonce1 = nonce1
 	context.ExtraNonce2Size = nonce2Size
+	log.Printf("worker context: %v", context)
 
 	go m.notifyAfterSubscribe(e)
 
@@ -125,6 +126,7 @@ func (m *Mining) Notify(args *interface{}, reply *interface{}, e *birpc.Endpoint
 	ctx := e.Context.(*ClientContext)
 	ctx.CurrentJob = job
 	ctx.JobCh <- job
+	log.Printf("Upstream new job: %v", job)
 
 	return nil
 }
@@ -215,6 +217,13 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	if err := job.submit(submission); err != nil {
 		return m.rpcError(ErrorDuplicateShare)
 	}
+
+	// build coinbase
+	coinbase := job.buildCoinbase(context.ExtraNonce1, extraNonce2)
+	log.Printf("coinbase: %s\n", coinbase)
+
+	merkleRoot := job.MerkleRoot(context.ExtraNonce1, extraNonce2)
+	log.Printf("merkleRoot: %s\n", merkleRoot)
 
 	err2 := m.processShare(username, jobId, extraNonce2, ntime, nonce)
 	if err2 != nil {
@@ -421,4 +430,37 @@ func (job *Job) submit(share string) error {
 	job.shares[share] = true
 	job.lock.Unlock()
 	return nil
+}
+
+// Insert inserts the value into the slice at the specified index,
+// which must be in range.
+// The slice must have room for the new element.
+func Insert(slice []int, index, value int) []int {
+    // Grow the slice by one element.
+    slice = slice[0 : len(slice)+1]
+    // Use copy to move the upper part of the slice out of the way and open a hole.
+  copy(slice[index+1:], slice[index:])
+    // Store the new value.
+    slice[index] = value
+    // Return the result.
+    return slice
+}
+
+func (job *Job) buildCoinbase(nonce1, nonce2 string) []byte {
+	return CoinbaseHash(job.Coinb1, nonce1, nonce2, job.Coinb2)
+}
+
+func (job *Job) MerkleRoot(nonce1, nonce2 string) *btcwire.ShaHash {
+	hashes := make([]*btcwire.ShaHash, len(job.MerkleBranch)+1)
+	copy(hashes[1:], job.MerkleBranch)
+
+	coinbase := job.buildCoinbase(nonce1, nonce2)
+	log.Printf("coinbase hash: %s", HexToString(coinbase))
+	// coinbaseHash, _ := btcwire.NewShaHash(coinbase)
+	coinbaseHash, _ := btcwire.NewShaHashFromStr(HexToString(coinbase))
+	log.Printf("coinbase hash from byte: %s", coinbaseHash.String())
+	hashes[0] = coinbaseHash
+	log.Printf("hashes to build root: %v", hashes)
+
+	return BuildMerkleRoot(hashes)
 }

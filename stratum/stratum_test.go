@@ -85,7 +85,7 @@ func TestMerkleRoot(t *testing.T) {
 		"c4b035e3d51318eed15361f306cce27123ca7a3c8e3ce565c68a649faf3d5338",
 	}
 
-	txList := make([]*btcwire.ShaHash, 0, len(txHashes))
+	txList := make([]*btcwire.ShaHash, 0, len(txHashes) + 1)
 	for _, hash := range txHashes {
 		txHash, _ := btcwire.NewShaHashFromStr(hash)
 		txList = append(txList, txHash)
@@ -100,6 +100,9 @@ func TestMerkleRoot(t *testing.T) {
 
 func TestSerializeHeader(t *testing.T) {
 	// http://www.righto.com/2014/02/bitcoin-mining-hard-way-algorithms.html
+	//{"id":1,"result":[[["mining.set_difficulty","b4b6693b72a50c7116db18d6497cac52"],["mining.notify","ae6812eb4cd7735a302a8a9dd95cf71f"]],"4bc6af58",4],"error":null}
+	extraNonce1 := "4bc6af58"
+
 	list := birpc.List{
 		"58af8d8c",
 		"975b9717f7d18ec1f2ad55e2559b5997b8da0e3317c803780000000100000000",
@@ -120,6 +123,8 @@ func TestSerializeHeader(t *testing.T) {
 		t.Errorf("Merkle root hash does not match.")
 	}
 
+	// {"method": "mining.submit", "params": ["kens.worker1", "58af8db7", "00000000", "53058d7b", "e8832204"], "id":4}
+	extraNonce2 := "00000000"
 	ntime := "53058d7b"
 	nonce := "e8832204"
 
@@ -151,64 +156,57 @@ func TestSerializeHeader(t *testing.T) {
 		t.Errorf("d1 != d2: %v, %v", diff1, diff2)
 	}
 
+	t.Errorf("diff1: %v", diff1)
+	t.Errorf("header hash: %v", stratum.ShaHashToBig(&headerHash))
 	shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
 	if shareDiff.Cmp(big.NewInt(int64(1))) > 0 {
 		t.Errorf("share diff >1")
+	}
+
+	merkleRoot = job.MerkleRoot(extraNonce1, extraNonce2)
+	if merkleRoot.String() != "e2c0da53ebf5273c9d4f07260b40acf0034ba8b0105a669992fb281cbb524846" {
+		t.Errorf("merkle root not match: %s", merkleRoot.String())
 	}
 }
 
-func TestSerializeHeader2(t *testing.T) {
-	// http://mining.bitcoin.cz/stratum-mining#example
+func TestDifficulity(t *testing.T) {
+	//{"id":1,"result":[[["mining.set_difficulty","deadbeefcafebabe0100000000000000"],["mining.notify","deadbeefcafebabe0100000000000000"]],"68000000",4],"error":null}
+
+	//{"id":1,"result":[[["mining.set_difficulty","b76361f0283e96fbeaad8fb46475007dbf7916c3"],["mining.notify","b76361f0283e96fbeaad8fb46475007dbf7916c3"]],"680000000002",2]}
+	//{"method":"mining.set_difficulty","params":[0.02]}
+	//{"id":null,"method":"mining.notify","params":["8","38ebed66634aeb2c574c47369851536c1a9524cd934b15280000638500000000","01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff27030a1104062f503253482f0418fdb45308","0d2f6e6f64655374726174756d2f000000000240eda87e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988acc00b5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",[],"00000002","1b013164","53b4fd1a",true]}
+
 	list := birpc.List{
-		"bf",
-		"4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
-		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
-		"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000",
+		"8",
+		"38ebed66634aeb2c574c47369851536c1a9524cd934b15280000638500000000",
+		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff27030a1104062f503253482f0418fdb45308",
+		"0d2f6e6f64655374726174756d2f000000000240eda87e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988acc00b5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",
 		birpc.List{},
 		"00000002",
-		"1c2ac4af",
-		"504e86b9",
-		false,
+		"1b013164",
+		"53b4fd1a",
+		true,
 	}
 	job, _ := stratum.NewJob(list)
 
-	txHashes, _ := stratum.MerkleHashesFromList(list[4])
-	merkleRoot := stratum.BuildMerkleRoot(txHashes)
-	t.Errorf("Merkle root hash: %s", merkleRoot)
+	//{"method": "mining.submit", "params": ["1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "8", "0000", "53b4fd1a", "042c8d05"], "id":4}
 
+	extraNonce1 := "680000000002"
+	extraNonce2 := "0000"
 	ntime := "53058d7b"
 	nonce := "e8832204"
 
+	merkleRoot := job.MerkleRoot(extraNonce1, extraNonce2)
 	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
-	var buf bytes.Buffer
-	_ = header.Serialize(&buf)
-	blockHeaderLen := 80
-	headerStr := hex.EncodeToString(buf.Bytes()[0:blockHeaderLen])
-	expectedHeader := "0200000000000000010000007803c817330edab897599b55e255adf2c18ed1f717975b973fb680fce66f5775231b433c83a161a960fefa798bb7af3712973cb845093b027b8d0553535f0119042283e8"
-	if headerStr != expectedHeader {
-		t.Errorf("Not expected header: %s", headerStr)
-	}
-
 	headerHash, _ := header.BlockSha()
-	// given little-endian hash string
-	buf2, _ := hex.DecodeString("5d495a2f92a67ac6df4b2f84c7ee76df7bc0633d57394dd8b9c2253f420ddef6")
-	expectedHash, _ := btcwire.NewShaHash(buf2)
-	if !headerHash.IsEqual(expectedHash) {
-		t.Errorf("wrong header hash %v", headerHash.String())
-	}
 
 	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
 	compact := uint32(0x1d00ffff)
 	diff1 := stratum.CompactToBig(compact)
-	hash, _ := btcwire.NewShaHashFromStr("00000000FFFF0000000000000000000000000000000000000000000000000000")
-	diff2 := btcchain.ShaHashToBig(hash)
-
-	if diff1.Cmp(diff2) != 0 {
-		t.Errorf("d1 != d2: %v, %v", diff1, diff2)
-	}
 
 	shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
-	if shareDiff.Cmp(big.NewInt(int64(1))) > 0 {
-		t.Errorf("share diff >1")
-	}
+	t.Errorf("share diff: %v", shareDiff)
+	//if shareDiff.Cmp(big.NewInt(int64(0.02))) > 0 {
+	//t.Errorf("share diff less than 0.02")
+	//}
 }

@@ -196,6 +196,7 @@ func BuildMerkleTree(mkBranches []*btcwire.ShaHash) []*btcwire.ShaHash {
 	return merkles
 }
 
+// Merkle branches has at least one which is coinbase hash.
 func BuildMerkleRoot(mkBranches []*btcwire.ShaHash) *btcwire.ShaHash {
 	merkles := BuildMerkleTree(mkBranches)
 	return merkles[len(merkles)-1]
