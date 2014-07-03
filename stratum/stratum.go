@@ -11,6 +11,7 @@ import (
 	"github.com/yinhm/ninepool/birpc"
 	"log"
 	"math"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -194,8 +195,8 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 		return m.rpcUnknownError("incorrect size of extranonce2")
 	}
 
-	worker, _ := DefaultServer.workers[e]
-	job, ok := worker.context.pool.jobs[jobId]
+	pool := context.pool
+	job, ok := pool.jobs[jobId]
 	if !ok {
 		return m.rpcError(ErrorJobNotFound)
 	}
@@ -225,18 +226,9 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	merkleRoot := job.MerkleRoot(context.ExtraNonce1, extraNonce2)
 	log.Printf("merkleRoot: %s\n", merkleRoot)
 
-	err2 := m.processShare(username, jobId, extraNonce2, ntime, nonce)
-	if err2 != nil {
-		// m.ban()
-		return err2
-	}
+	go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce)
 
 	*reply = true
-	log.Printf("share accepted: %v\n", jobId)
-	return nil
-}
-
-func (m *Mining) processShare(username, jobId, extraNonce2, ntime, nonce string) error {
 	log.Printf("share accepted: %v\n", jobId)
 	return nil
 }
@@ -244,6 +236,7 @@ func (m *Mining) processShare(username, jobId, extraNonce2, ntime, nonce string)
 type NonceCounter interface {
 	Next() string
 	Nonce2Size() int
+	Nonce1Suffix(string) string
 }
 
 type ExtraNonceCounter struct {
@@ -276,6 +269,11 @@ func (ct *ExtraNonceCounter) Next() string {
 
 func (ct *ExtraNonceCounter) Nonce2Size() int {
 	return len(ct.NoncePlaceHolder) - ct.Size
+}
+
+// mock func
+func (ct *ExtraNonceCounter) Nonce1Suffix(nonce1 string) string {
+	return ""
 }
 
 // Logic should be the same as tail_iterator in stratum-mining-proxy
@@ -342,6 +340,11 @@ func (ct *ProxyExtraNonceCounter) Next() string {
 // api compatible with ExtraNonceCounter
 func (ct *ProxyExtraNonceCounter) Nonce2Size() int {
 	return ct.extra3Size
+}
+
+// appended nonce1 suffix by this counter
+func (ct *ProxyExtraNonceCounter) Nonce1Suffix(nonce1 string) string {
+	return strings.TrimPrefix(nonce1, ct.extraNonce1)
 }
 
 // job_id - ID of the job. Use this ID while submitting share generated from this job.
@@ -436,14 +439,14 @@ func (job *Job) submit(share string) error {
 // which must be in range.
 // The slice must have room for the new element.
 func Insert(slice []int, index, value int) []int {
-    // Grow the slice by one element.
-    slice = slice[0 : len(slice)+1]
-    // Use copy to move the upper part of the slice out of the way and open a hole.
-  copy(slice[index+1:], slice[index:])
-    // Store the new value.
-    slice[index] = value
-    // Return the result.
-    return slice
+	// Grow the slice by one element.
+	slice = slice[0 : len(slice)+1]
+	// Use copy to move the upper part of the slice out of the way and open a hole.
+	copy(slice[index+1:], slice[index:])
+	// Store the new value.
+	slice[index] = value
+	// Return the result.
+	return slice
 }
 
 func (job *Job) buildCoinbase(nonce1, nonce2 string) []byte {

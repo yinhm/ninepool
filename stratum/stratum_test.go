@@ -156,8 +156,8 @@ func TestSerializeHeader(t *testing.T) {
 		t.Errorf("d1 != d2: %v, %v", diff1, diff2)
 	}
 
-	t.Errorf("diff1: %v", diff1)
-	t.Errorf("header hash: %v", stratum.ShaHashToBig(&headerHash))
+	//t.Errorf("diff1: %v", diff1)
+	//t.Errorf("header hash: %v", stratum.ShaHashToBig(&headerHash))
 	shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
 	if shareDiff.Cmp(big.NewInt(int64(1))) > 0 {
 		t.Errorf("share diff >1")

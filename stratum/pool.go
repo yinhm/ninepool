@@ -171,3 +171,13 @@ func (p *Pool) broadcast(job *Job) {
 	}
 	log.Printf("Broadcast job from %s to %d workers.", p.address, len(p.workers))
 }
+
+// submit job to upstream
+func (p *Pool) submit(jobId, extraNonce1, extraNonce2, ntime, nonce string) {
+	ctx := p.Context()
+	if ctx == nil {
+		log.Printf("share can not submit, lost connection to pool\n")
+	}
+	nonce2 := p.nonceCounter.Nonce1Suffix(extraNonce1) + extraNonce2
+	p.upstream.Submit(ctx.Username, jobId, nonce2, ntime, nonce)
+}
