@@ -267,7 +267,7 @@ func TestNewJob(t *testing.T) {
 		"4d16b6f85af6e2198f44ae2a6de67f78487ae5611b77c6c0440b921e00000000",
 		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff20020862062f503253482f04b8864e5008",
 		"072f736c7573682f000000000100f2052a010000001976a914d23fcdf86f7e756a64a7a9688ef9903327048ed988ac00000000",
-		birpc.List{},
+		birpc.List{"ea9da84d55ebf07f47def6b9b35ab30fc18b6e980fc618f262724388f2e9c591"},
 		"00000002",
 		"1c2ac4af",
 		"504e86b9",
@@ -279,6 +279,10 @@ func TestNewJob(t *testing.T) {
 	time.Sleep(20 * time.Millisecond) // wait for server push new job
 	if ctx.CurrentJob.JobId != "foo" {
 		t.Fatalf("mining.notify not received.")
+	}
+
+	if ctx.CurrentJob.MerkleBranch[0].String() != "ea9da84d55ebf07f47def6b9b35ab30fc18b6e980fc618f262724388f2e9c591" {
+		t.Fatalf("mining.notify: job merkle branch not equal.")
 	}
 
 	// submit previous job

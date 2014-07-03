@@ -395,12 +395,17 @@ func MerkleHashesFromList(list interface{}) ([]*btcwire.ShaHash, error) {
 }
 
 func (job *Job) tolist() *birpc.List {
+	merkleHashes := make([]string, len(job.MerkleBranch))
+	for i, h := range job.MerkleBranch {
+		merkleHashes[i] = h.String()
+	}
+
 	return &birpc.List{
 		job.JobId,
 		job.PrevHash,
 		job.Coinb1,
 		job.Coinb2,
-		job.MerkleBranch,
+		merkleHashes,
 		job.Version,
 		job.Nbits,
 		job.Ntime,
