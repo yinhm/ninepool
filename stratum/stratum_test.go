@@ -3,7 +3,6 @@ package stratum_test
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/conformal/btcchain"
 	"github.com/conformal/btcwire"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/stratum"
@@ -114,50 +113,19 @@ func TestSerializeHeader(t *testing.T) {
 	}
 	job, _ := stratum.NewJob(list)
 
-	txHashes, _ := stratum.MerkleHashesFromList(list[4])
-	merkleRoot := stratum.BuildMerkleRoot(txHashes)
-	expected, _ := btcwire.NewShaHashFromStr("023b0945b83c971237afb78b79fafe60a961a1833c431b2375576fe6fc80b63f")
-	if !expected.IsEqual(merkleRoot) {
-		t.Errorf("Merkle root hash does not match.")
-	}
 
-	// {"method": "mining.submit", "params": ["kens.worker1", "58af8db7", "00000000", "53058d7b", "e8832204"], "id":4}
+  extraNonce1 := "4bc6af58"
+  extraNonce2 := "00000000"
 	ntime := "53058d7b"
 	nonce := "e8832204"
 
+	merkleRoot := job.MerkleRoot(extraNonce1, extraNonce2)
 	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
-	var buf bytes.Buffer
-	_ = header.Serialize(&buf)
-	blockHeaderLen := 80
-	headerStr := hex.EncodeToString(buf.Bytes()[0:blockHeaderLen])
-	expectedHeader := "0200000000000000010000007803c817330edab897599b55e255adf2c18ed1f717975b973fb680fce66f5775231b433c83a161a960fefa798bb7af3712973cb845093b027b8d0553535f0119042283e8"
-	if headerStr != expectedHeader {
-		t.Errorf("Not expected header: %s", headerStr)
-	}
-
 	headerHash, _ := header.BlockSha()
 	// given little-endian hash string
-	buf2, _ := hex.DecodeString("5d495a2f92a67ac6df4b2f84c7ee76df7bc0633d57394dd8b9c2253f420ddef6")
-	expectedHash, _ := btcwire.NewShaHash(buf2)
-	if !headerHash.IsEqual(expectedHash) {
+	expected := "4a77d5d2e3f51ecc8aec8a75d8f157ec2637d44450e3f0949db78dbb21f7ed5a"
+	if headerHash.String() != expected {
 		t.Errorf("wrong header hash %v", headerHash.String())
-	}
-
-	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
-	compact := uint32(0x1d00ffff)
-	diff1 := stratum.CompactToBig(compact)
-	hash, _ := btcwire.NewShaHashFromStr("00000000FFFF0000000000000000000000000000000000000000000000000000")
-	diff2 := btcchain.ShaHashToBig(hash)
-
-	if diff1.Cmp(diff2) != 0 {
-		t.Errorf("d1 != d2: %v, %v", diff1, diff2)
-	}
-
-	//t.Errorf("diff1: %v", diff1)
-	//t.Errorf("header hash: %v", stratum.ShaHashToBig(&headerHash))
-	shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
-	if shareDiff.Cmp(big.NewInt(int64(1))) > 0 {
-		t.Errorf("share diff >1")
 	}
 }
 
