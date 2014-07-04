@@ -240,16 +240,16 @@ func TestDifficulity(t *testing.T) {
 	if headerHash.String() != expHeaderHash {
 		t.Errorf("wrong header hash %v", headerHash.String())
 	}
-	headerBig := stratum.ShaHashToBig(&headerHash)
-	t.Errorf("header big: %v", headerBig)
+	shareDiff := stratum.ShaHashToBig(&headerHash)
 
 	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
-	// compact := uint32(0x1d00ffff)
-	// diff1 := stratum.CompactToBig(compact)
+	compact := uint32(0x1d00ffff)
+	diff1 := stratum.CompactToBig(compact)
 
-	// shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
-	// t.Errorf("share diff: %v", shareDiff)
-	//if shareDiff.Cmp(big.NewInt(int64(0.02))) > 0 {
-	//t.Errorf("share diff less than 0.02")
-	//}
+	target := new(big.Int).Div(diff1, big.NewInt(int64(1)))
+	if shareDiff.Cmp(target) > 0 {
+		t.Errorf("share difficulty not meet the target.")
+		t.Errorf("header big: %v", shareDiff)
+		t.Errorf("job target: %v", target)
+	}
 }
