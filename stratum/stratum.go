@@ -11,6 +11,7 @@ import (
 	"github.com/yinhm/ninepool/birpc"
 	"log"
 	"math"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -219,12 +220,25 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 		return m.rpcError(ErrorDuplicateShare)
 	}
 
-	// build coinbase
-	coinbase := job.buildCoinbase(context.ExtraNonce1, extraNonce2)
-	log.Printf("coinbase: %s\n", coinbase)
-
+	// target check
 	merkleRoot := job.MerkleRoot(context.ExtraNonce1, extraNonce2)
-	log.Printf("merkleRoot: %s\n", merkleRoot)
+	header, err := SerializeHeader(job, merkleRoot, ntime, nonce)
+	if err != nil {
+		return m.rpcUnknownError("job error")
+	}
+	headerHash, _ := header.BlockSha()
+	log.Printf("header hash: %s", headerHash.String())
+	shareDiff := ShaHashToBig(&headerHash)
+
+	compact := uint32(0x1d00ffff)
+	diff1 := CompactToBig(compact)
+	target := new(big.Int).Div(diff1, big.NewInt(int64(1)))
+	log.Printf("header hash: %s", headerHash.String())
+	if shareDiff.Cmp(target) > 0 {
+		log.Printf("share difficulty not meet the target.")
+		log.Printf("header big: %v", shareDiff)
+		log.Printf("job target: %v", target)
+	}
 
 	go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce)
 
