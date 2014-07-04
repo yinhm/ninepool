@@ -215,7 +215,12 @@ func SerializeHeader(job *Job, merkleRoot *btcwire.ShaHash, ntime string, nonce 
 	if err != nil {
 		return nil, err
 	}
-	PrevHash, err := btcwire.NewShaHashFromStr(job.PrevHash)
+	reversedHash, err := ReversePrevHash(job.PrevHash)
+	if err != nil {
+		return nil, err
+	}
+	PrevHash, err := btcwire.NewShaHash(reversedHash)
+	// PrevHash, err := btcwire.NewShaHashFromStr(job.PrevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -255,4 +260,33 @@ func HeaderToBig(header *btcwire.BlockHeader) *big.Int {
 // target is the lowest possible difficulty.
 func Target(diff1_target string, newDiff int) {
 	
+}
+
+// Server as a single purpose, reverse prevhash in stratum job.
+// The prevhash is the hash of the previous block. Apparently mixing
+// big-ending and little-endian isn't confusing enough so this hash value
+// also has every block of 4 bytes reversed.
+// See: http://stackoverflow.com/questions/9245235/golang-midstate-sha-256-hash
+func ReversePrevHash(hash string) ([]byte, error) {
+	buf, err := hex.DecodeString(hash)
+	if err != nil {
+		return nil, err
+	}
+	length := len(buf)
+	ret := make([]byte, length)
+	times := length / 4 // divide by four bytes group
+	for i := 0; i < times; i++ {
+		index := i * 4
+		copy(ret[index:index+4], ReverseBytes(buf[index:index+4]))
+	}
+	return ret, nil
+}
+
+func ReverseBytes(bytes []byte) []byte {
+	length := len(bytes)
+  ret := make([]byte, length)
+  for i := 0; i < length; i++ {
+    ret[i] = bytes[length-1-i]
+  }
+  return ret
 }

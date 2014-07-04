@@ -101,8 +101,6 @@ func TestBuildMerkleRoot(t *testing.T) {
 func TestSerializeHeader(t *testing.T) {
 	// http://www.righto.com/2014/02/bitcoin-mining-hard-way-algorithms.html
 	//{"id":1,"result":[[["mining.set_difficulty","b4b6693b72a50c7116db18d6497cac52"],["mining.notify","ae6812eb4cd7735a302a8a9dd95cf71f"]],"4bc6af58",4],"error":null}
-	extraNonce1 := "4bc6af58"
-
 	list := birpc.List{
 		"58af8d8c",
 		"975b9717f7d18ec1f2ad55e2559b5997b8da0e3317c803780000000100000000",
@@ -124,7 +122,6 @@ func TestSerializeHeader(t *testing.T) {
 	}
 
 	// {"method": "mining.submit", "params": ["kens.worker1", "58af8db7", "00000000", "53058d7b", "e8832204"], "id":4}
-	extraNonce2 := "00000000"
 	ntime := "53058d7b"
 	nonce := "e8832204"
 
@@ -162,11 +159,6 @@ func TestSerializeHeader(t *testing.T) {
 	if shareDiff.Cmp(big.NewInt(int64(1))) > 0 {
 		t.Errorf("share diff >1")
 	}
-
-	merkleRoot = job.MerkleRoot(extraNonce1, extraNonce2)
-	if merkleRoot.String() != "e2c0da53ebf5273c9d4f07260b40acf0034ba8b0105a669992fb281cbb524846" {
-		t.Errorf("merkle root not match: %s", merkleRoot.String())
-	}
 }
 
 func TestJobMerkleRoot(t *testing.T) {
@@ -193,6 +185,14 @@ func TestJobMerkleRoot(t *testing.T) {
 	}
 }
 
+func TestReversePrevHash(t *testing.T) {
+	actual, _ := stratum.ReversePrevHash("69fc72e76db0e764615a858f483e3566e42d56b2bc7a03adce9492887010eda8")
+	expected, _ := hex.DecodeString("e772fc6964e7b06d8f855a6166353e48b2562de4ad037abc889294cea8ed1070")
+	if string(actual) != string(expected) {
+		t.Errorf("prevhash reverse failed,\n%s\n%s", string(actual), string(expected))
+	}
+}
+
 func TestDifficulity(t *testing.T) {
 	// sha256d
 	// upstream <=> cpuminer
@@ -202,7 +202,7 @@ func TestDifficulity(t *testing.T) {
 	//{"method": "mining.submit", "params": ["n4p4cLr6mfp1obJAda8jt1gJjuXyjQ8GTk", "4", "00000000", "53b61d05", "0ae44d20"], "id":4}
 
 	list := birpc.List{
-		"1",
+		"4",
 		"16fec96ac8501b7178c41590c7b378b940120cfd3c869b2c0000d25100000000",
 		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2703f81104062f503253482f04041db65308",
 		"0d2f6e6f64655374726174756d2f000000000240eda87e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988acc00b5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",
@@ -220,28 +220,35 @@ func TestDifficulity(t *testing.T) {
 	nonce := "0ae44d20"
 
 	merkleRoot := job.MerkleRoot(extraNonce1, extraNonce2)
-	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
-	headerHash, _ := header.BlockSha()
-
-	t.Errorf("merkleRoot: %v", merkleRoot)
-	t.Errorf("header hash: %v", stratum.ShaHashToBig(&headerHash))
-	t.Errorf("prevhash: %s", header.PrevBlock.String())
+	header, err := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
+	if err != nil {
+		t.Errorf("unexpected: %v", err)
+		return
+	}
 
 	var buf bytes.Buffer
 	_ = header.Serialize(&buf)
 	headerStr := hex.EncodeToString(buf.Bytes()[0:80])
 
-	if headerStr != "0200000063e54faabeafe5e4881f87bd40a9df472cda4e250f6f00148bb229d700000000a45b57990157e73b26862c7a3dbdf449e15f5738a6eb318e5a6e4e3b554ceee48e08b6536431011bcfaa5e05" {
+	if headerStr != "020000006ac9fe16711b50c89015c478b978b3c7fd0c12402c9b863c51d2000000000000ba5b12583ba12f20cc31ef6b2e0bd77964305256312245f21a414dc0c91897e6051db6536431011b204de40a" {
 		t.Errorf("header buffer not expected: %v", headerStr)
-		//000000008bb229d70f6f00142cda4e2540a9df47881f87bdbeafe5e463e54faae4ee4c553b4e6e5a8e31eba638575fe149f4bd3d7a2c86263be7570199575ba48e08b6536431011bcfaa5e05
 	}
 
-	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
-	compact := uint32(0x1d00ffff)
-	diff1 := stratum.CompactToBig(compact)
+	headerHash, _ := header.BlockSha()
+	// hash in standard bitcoin big-endian form.
+	expHeaderHash := "00000000d3d7347bfebb9587d01ebbdd4840579ebb6f6bae0c190bf363d0cd3d"
+	if headerHash.String() != expHeaderHash {
+		t.Errorf("wrong header hash %v", headerHash.String())
+	}
+	headerBig := stratum.ShaHashToBig(&headerHash)
+	t.Errorf("header big: %v", headerBig)
 
-	shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
-	t.Errorf("share diff: %v", shareDiff)
+	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	// compact := uint32(0x1d00ffff)
+	// diff1 := stratum.CompactToBig(compact)
+
+	// shareDiff := new(big.Int).Div(diff1, stratum.ShaHashToBig(&headerHash))
+	// t.Errorf("share diff: %v", shareDiff)
 	//if shareDiff.Cmp(big.NewInt(int64(0.02))) > 0 {
 	//t.Errorf("share diff less than 0.02")
 	//}
