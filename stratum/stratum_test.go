@@ -73,7 +73,7 @@ func TestCoinbaseHash(t *testing.T) {
 	}
 }
 
-func TestMerkleRoot(t *testing.T) {
+func TestBuildMerkleRoot(t *testing.T) {
 	// https://blockexplorer.com/rawblock/0000000000000000151f00e7b882b15f1523587f4c97c8f16cac185946039ba1
 	txHashes := []string{
 		"e57c35461e4be6b197b22f126d43561022d4107cc1326a9cb1e892b43e4d48db",
@@ -85,7 +85,7 @@ func TestMerkleRoot(t *testing.T) {
 		"c4b035e3d51318eed15361f306cce27123ca7a3c8e3ce565c68a649faf3d5338",
 	}
 
-	txList := make([]*btcwire.ShaHash, 0, len(txHashes) + 1)
+	txList := make([]*btcwire.ShaHash, 0, len(txHashes)+1)
 	for _, hash := range txHashes {
 		txHash, _ := btcwire.NewShaHashFromStr(hash)
 		txList = append(txList, txHash)
@@ -169,36 +169,72 @@ func TestSerializeHeader(t *testing.T) {
 	}
 }
 
-func TestDifficulity(t *testing.T) {
-	//{"id":1,"result":[[["mining.set_difficulty","deadbeefcafebabe0100000000000000"],["mining.notify","deadbeefcafebabe0100000000000000"]],"68000000",4],"error":null}
-
-	//{"id":1,"result":[[["mining.set_difficulty","b76361f0283e96fbeaad8fb46475007dbf7916c3"],["mining.notify","b76361f0283e96fbeaad8fb46475007dbf7916c3"]],"680000000002",2]}
-	//{"method":"mining.set_difficulty","params":[0.02]}
-	//{"id":null,"method":"mining.notify","params":["8","38ebed66634aeb2c574c47369851536c1a9524cd934b15280000638500000000","01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff27030a1104062f503253482f0418fdb45308","0d2f6e6f64655374726174756d2f000000000240eda87e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988acc00b5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",[],"00000002","1b013164","53b4fd1a",true]}
-
+func TestJobMerkleRoot(t *testing.T) {
 	list := birpc.List{
-		"8",
-		"38ebed66634aeb2c574c47369851536c1a9524cd934b15280000638500000000",
-		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff27030a1104062f503253482f0418fdb45308",
+		"1",
+		"16fec96ac8501b7178c41590c7b378b940120cfd3c869b2c0000d25100000000",
+		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2703f81104062f503253482f04041db65308",
 		"0d2f6e6f64655374726174756d2f000000000240eda87e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988acc00b5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",
 		birpc.List{},
 		"00000002",
 		"1b013164",
-		"53b4fd1a",
-		true,
+		"53b61d05",
+		false,
 	}
 	job, _ := stratum.NewJob(list)
 
-	//{"method": "mining.submit", "params": ["1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "8", "0000", "53b4fd1a", "042c8d05"], "id":4}
+	extraNonce1 := "38000000"
+	extraNonce2 := "00000000"
 
-	extraNonce1 := "680000000002"
-	extraNonce2 := "0000"
-	ntime := "53058d7b"
-	nonce := "e8832204"
+	merkleRoot := job.MerkleRoot(extraNonce1, extraNonce2)
+	expected, _ := btcwire.NewShaHashFromStr("e69718c9c04d411af24522315652306479d70b2e6bef31cc202fa13b58125bba")
+	if !expected.IsEqual(merkleRoot) {
+		t.Errorf("merkleRoot: %v", merkleRoot)
+	}
+}
+
+func TestDifficulity(t *testing.T) {
+	// sha256d
+	// upstream <=> cpuminer
+	//{"id":1,"result":[[["mining.set_difficulty","deadbeefcafebabe0100000000000000"],["mining.notify","deadbeefcafebabe0100000000000000"]],"38000000",4],"error":null}
+	//{"id":null,"method":"mining.set_difficulty","params":[1]}
+	//{"id":null,"method":"mining.notify","params":["4","16fec96ac8501b7178c41590c7b378b940120cfd3c869b2c0000d25100000000","01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2703f81104062f503253482f04041db65308","0d2f6e6f64655374726174756d2f000000000240eda87e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988acc00b5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",[],"00000002","1b013164","53b61d05",false]}
+	//{"method": "mining.submit", "params": ["n4p4cLr6mfp1obJAda8jt1gJjuXyjQ8GTk", "4", "00000000", "53b61d05", "0ae44d20"], "id":4}
+
+	list := birpc.List{
+		"1",
+		"16fec96ac8501b7178c41590c7b378b940120cfd3c869b2c0000d25100000000",
+		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2703f81104062f503253482f04041db65308",
+		"0d2f6e6f64655374726174756d2f000000000240eda87e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988acc00b5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",
+		birpc.List{},
+		"00000002",
+		"1b013164",
+		"53b61d05",
+		false,
+	}
+	job, _ := stratum.NewJob(list)
+
+	extraNonce1 := "38000000"
+	extraNonce2 := "00000000"
+	ntime := "53b61d05"
+	nonce := "0ae44d20"
 
 	merkleRoot := job.MerkleRoot(extraNonce1, extraNonce2)
 	header, _ := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
 	headerHash, _ := header.BlockSha()
+
+	t.Errorf("merkleRoot: %v", merkleRoot)
+	t.Errorf("header hash: %v", stratum.ShaHashToBig(&headerHash))
+	t.Errorf("prevhash: %s", header.PrevBlock.String())
+
+	var buf bytes.Buffer
+	_ = header.Serialize(&buf)
+	headerStr := hex.EncodeToString(buf.Bytes()[0:80])
+
+	if headerStr != "0200000063e54faabeafe5e4881f87bd40a9df472cda4e250f6f00148bb229d700000000a45b57990157e73b26862c7a3dbdf449e15f5738a6eb318e5a6e4e3b554ceee48e08b6536431011bcfaa5e05" {
+		t.Errorf("header buffer not expected: %v", headerStr)
+		//000000008bb229d70f6f00142cda4e2540a9df47881f87bdbeafe5e463e54faae4ee4c553b4e6e5a8e31eba638575fe149f4bd3d7a2c86263be7570199575ba48e08b6536431011bcfaa5e05
+	}
 
 	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
 	compact := uint32(0x1d00ffff)

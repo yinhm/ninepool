@@ -456,14 +456,9 @@ func (job *Job) buildCoinbase(nonce1, nonce2 string) []byte {
 func (job *Job) MerkleRoot(nonce1, nonce2 string) *btcwire.ShaHash {
 	hashes := make([]*btcwire.ShaHash, len(job.MerkleBranch)+1)
 	copy(hashes[1:], job.MerkleBranch)
-
 	coinbase := job.buildCoinbase(nonce1, nonce2)
-	log.Printf("coinbase hash: %s", HexToString(coinbase))
-	// coinbaseHash, _ := btcwire.NewShaHash(coinbase)
-	coinbaseHash, _ := btcwire.NewShaHashFromStr(HexToString(coinbase))
-	log.Printf("coinbase hash from byte: %s", coinbaseHash.String())
+	// NewShaHashFromStr(HexToString(coinbase)) <-- give the wrong result
+	coinbaseHash, _ := btcwire.NewShaHash(coinbase)
 	hashes[0] = coinbaseHash
-	log.Printf("hashes to build root: %v", hashes)
-
 	return BuildMerkleRoot(hashes)
 }
