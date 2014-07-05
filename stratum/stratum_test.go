@@ -221,3 +221,45 @@ func TestDifficulity(t *testing.T) {
 		t.Errorf("job target: %v", target)
 	}
 }
+
+func TestDifficulityWithTnx(t *testing.T) {
+	// sha256d
+	// < {"id":1,"result":[[["mining.set_difficulty","4d7c80542434bde760ef7182e665895bbc4d67f0"],["mining.notify","4d7c80542434bde760ef7182e665895bbc4d67f0"]],"580000020001",2]}
+	// < {"method":"mining.notify","params":["30","5da479a459762b2082abb7496cea48694c50b7a2bc070457bb7fd0f400000000","01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2703851204062f503253482f0446ecb65308","0d2f6e6f64655374726174756d2f00000000029d6bab7e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988ac677c5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",["2595fd2d192731df10d131eb77e108449c189e88a6797d7b6027be328476433e","01cd5c94bb486111524040ef65fb23855fd524ea27f508581f521994ac72c44c","6be8f181cce5d752f9b994c1e2dfe371bcce0d602d4a8cd6da9e84c5e87b3db2","2cfa58a93fa1e1c75eda9fedfd49eec22a2af91f6de192e253b86c7df7a5aebf","692a1ab4bba06b055c5e5ec519e7800665b2ab6df86d05ffe36dbf769ada9d68"],"00000002","1b013164","53b6ec46",false]}
+	// hash <= target
+	// Hash:   00000000421a0986cafd57f748e8d33469eb2d0583243b4a299060ac0ebc0b3c
+	// Target: 00000000ffff000000000000000000000000000000000000000000000000000
+	// > {"method": "mining.submit", "params": ["1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "30", "0000", "53b6ec46", "5ea00f07"], "id":4}
+
+	list := birpc.List{
+		"31",
+		"5da479a459762b2082abb7496cea48694c50b7a2bc070457bb7fd0f400000000",
+		"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2703851204062f503253482f0446ecb65308",
+		"0d2f6e6f64655374726174756d2f00000000029d6bab7e000000001976a914efc72872187fbb5688001065c5df01ed84e6f25988ac677c5a16000000001976a914aa9eded884f09c5d5844df00093453dda8881b5b88ac00000000",
+		birpc.List{"2595fd2d192731df10d131eb77e108449c189e88a6797d7b6027be328476433e","01cd5c94bb486111524040ef65fb23855fd524ea27f508581f521994ac72c44c","6be8f181cce5d752f9b994c1e2dfe371bcce0d602d4a8cd6da9e84c5e87b3db2","2cfa58a93fa1e1c75eda9fedfd49eec22a2af91f6de192e253b86c7df7a5aebf","692a1ab4bba06b055c5e5ec519e7800665b2ab6df86d05ffe36dbf769ada9d68"},
+		"00000002",
+		"1b013164",
+		"53b6ec46",
+		false,
+	}
+	job, _ := stratum.NewJob(list)
+
+	extraNonce1 := "580000020001"
+	extraNonce2 := "0000"
+	ntime := "53b6ec46"
+	nonce := "5ea00f07"
+
+	merkleRoot := job.MerkleRoot(extraNonce1, extraNonce2)
+	header, err := stratum.SerializeHeader(job, merkleRoot, ntime, nonce)
+	if err != nil {
+		t.Errorf("unexpected: %v", err)
+		return
+	}
+	headerHash, _ := header.BlockSha()
+	// hash in standard bitcoin big-endian form.
+	expHeaderHash := "00000000421a0986cafd57f748e8d33469eb2d0583243b4a299060ac0ebc0b3c"
+	// NOMP header hash: 3c0bbc0eac6090294a3b2483052deb6934d3e848f757fdca86091a4200000000
+	if headerHash.String() != expHeaderHash {
+		t.Errorf("wrong header hash %v", headerHash.String())
+	}
+}

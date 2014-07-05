@@ -43,7 +43,7 @@ func NewPool(order *Order, errch chan error) (pool *Pool, err error) {
 	}
 
 	order.markConnected()
-	return NewPoolWithConn(order, upstream)
+	return NewPoolWithConn(order, upstream, errch)
 }
 
 func FindPool(pid int) (*Pool, bool) {
@@ -51,7 +51,7 @@ func FindPool(pid int) (*Pool, bool) {
 	return p, ok
 }
 
-func NewPoolWithConn(order *Order, upstream *StratumClient) (*Pool, error) {
+func NewPoolWithConn(order *Order, upstream *StratumClient, errch chan error) (*Pool, error) {
 	context := upstream.Context()
 	if context.ExtraNonce2Size != ExtraNonce2Size+ExtraNonce3Size {
 		errmsg := fmt.Sprintf("Invalid nonce sizes, must add up to %d", context.ExtraNonce2Size)
@@ -69,13 +69,13 @@ func NewPoolWithConn(order *Order, upstream *StratumClient) (*Pool, error) {
 
 	p.nonceCounter = NewProxyExtraNonceCounter(context.ExtraNonce1, ExtraNonce2Size, ExtraNonce3Size)
 
-	go p.Serve(DefaultPoolTimeout)
+	go p.Serve(DefaultPoolTimeout, errch)
 
 	context.pid = p.id
 	return p, nil
 }
 
-func (p *Pool) Serve(timeout time.Duration) {
+func (p *Pool) Serve(timeout time.Duration, errch chan error) {
 	for {
 		if p.isClosed() {
 			break
@@ -85,6 +85,10 @@ func (p *Pool) Serve(timeout time.Duration) {
 		case job := <-ctx.JobCh:
 			p.newJob(job)
 		case _ = <-ctx.ShutdownCh:
+			p.Shutdown()
+			break
+		case err := <-errch:
+			log.Printf("Pool %s lost connection, shutdown with error: %s", p.address, err)
 			p.Shutdown()
 			break
 		case <-time.After(timeout):

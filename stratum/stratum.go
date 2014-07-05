@@ -128,7 +128,6 @@ func (m *Mining) Notify(args *interface{}, reply *interface{}, e *birpc.Endpoint
 	ctx := e.Context.(*ClientContext)
 	ctx.CurrentJob = job
 	ctx.JobCh <- job
-	log.Printf("Upstream new job: %v", job)
 
 	return nil
 }
@@ -168,6 +167,7 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 
 func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error {
 	params := (*args).([]interface{})
+	log.Printf("params: %v", params)
 	username := params[0].(string)
 	jobId := params[1].(string)
 	extraNonce2 := params[2].(string)
@@ -222,6 +222,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 
 	// target check
 	merkleRoot := job.MerkleRoot(context.ExtraNonce1, extraNonce2)
+	log.Printf("merkle root: %s", merkleRoot.String())
 	header, err := SerializeHeader(job, merkleRoot, ntime, nonce)
 	if err != nil {
 		return m.rpcUnknownError("job error")
@@ -233,7 +234,6 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	compact := uint32(0x1d00ffff)
 	diff1 := CompactToBig(compact)
 	target := new(big.Int).Div(diff1, big.NewInt(int64(1)))
-	log.Printf("header hash: %s", headerHash.String())
 	if shareDiff.Cmp(target) > 0 {
 		log.Printf("share difficulty not meet the target.")
 		log.Printf("header big: %v", shareDiff)

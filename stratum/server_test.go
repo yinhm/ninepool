@@ -58,7 +58,7 @@ func addOrder() {
 	newJob, _ := stratum.NewJob(list)
 	ctx.JobCh <- newJob
 
-	p, _ := stratum.NewPoolWithConn(order, upstream)
+	p, _ := stratum.NewPoolWithConn(order, upstream, errch)
 	server.ActivePool(order, p, errch)
 	// _ = p.Context()
 }
