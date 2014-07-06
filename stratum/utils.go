@@ -196,10 +196,50 @@ func BuildMerkleTree(mkBranches []*btcwire.ShaHash) []*btcwire.ShaHash {
 	return merkles
 }
 
+// NewShaHashFromStr converts a hash string in the standard bitcoin big-endian
+// form to a ShaHash (which is little-endian).
+func NewShaHashFromMerkleBranch(hash string) (*btcwire.ShaHash, error) {
+	// Return error if hash string is too long.
+	if len(hash) > btcwire.MaxHashStringSize {
+		return nil, btcwire.ErrHashStrSize
+	}
+
+	// Hex decoder expects the hash to be a multiple of two.
+	if len(hash)%2 != 0 {
+		hash = "0" + hash
+	}
+
+	// Convert string hash to bytes.
+	buf, err := hex.DecodeString(hash)
+	if err != nil {
+		return nil, err
+	}
+
+	// Make sure the byte slice is the right length by appending zeros to
+	// pad it out.
+	blen := len(buf)
+	pbuf := buf
+	if btcwire.HashSize-blen > 0 {
+		pbuf = make([]byte, btcwire.HashSize)
+		copy(pbuf, buf)
+	}
+
+	// Create the sha hash using the byte slice and return it.
+	return btcwire.NewShaHash(pbuf)
+}
+
 // Merkle branches has at least one which is coinbase hash.
 func BuildMerkleRoot(mkBranches []*btcwire.ShaHash) *btcwire.ShaHash {
-	merkles := BuildMerkleTree(mkBranches)
-	return merkles[len(merkles)-1]
+	// merkles := BuildMerkleTree(mkBranches)
+	// return merkles[len(merkles)-1]
+  root := mkBranches[0]
+	if len(mkBranches) == 0 {
+		return root
+	}
+  for _, node := range mkBranches[1:] {
+		root = HashMerkleBranches(root, node)
+	}
+  return root
 }
 
 func SerializeHeader(job *Job, merkleRoot *btcwire.ShaHash, ntime string, nonce string) (*btcwire.BlockHeader, error) {

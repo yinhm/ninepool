@@ -17,6 +17,7 @@ type Worker struct {
 	accepted     int
 	rejected     int
 	created      int64
+	closing      bool
 }
 
 func NewWorker(endpoint *birpc.Endpoint, timeout time.Duration) *Worker {
@@ -40,8 +41,15 @@ func NewWorker(endpoint *birpc.Endpoint, timeout time.Duration) *Worker {
 }
 
 func (w *Worker) Close() {
+	w.lock.Lock()
+	w.lock.Unlock()
+
+	if w.closing == true {
+		return
+	}
 	w.detachPool()
 	w.endpoint.Close()
+	w.closing = true
 }
 
 func (w *Worker) waitSubscribe(timeout time.Duration) {

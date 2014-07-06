@@ -88,9 +88,12 @@ func (p *Pool) Serve(timeout time.Duration, errch chan error) {
 			p.Shutdown()
 			break
 		case err := <-errch:
-			log.Printf("Pool %s lost connection, shutdown with error: %s", p.address, err)
-			p.Shutdown()
-			break
+			log.Printf("Pool %s lost connection: %s, try reconnect...", p.address, err)
+			err = p.reconnect(errch)
+			if err != nil {
+				log.Printf("reconnect to %s failed, shutdown...", p.address)
+				p.Shutdown()
+			}
 		case <-time.After(timeout):
 			log.Printf("Pool %s timeout in %.1f minutes.", p.address, timeout.Minutes())
 			p.Shutdown()
@@ -114,6 +117,37 @@ func (p *Pool) isClosed() bool {
 	}
 
 	return p.closing
+}
+
+func (p *Pool) reconnect(errch chan error) error {
+	p.closeWorkers()
+
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	order := p.order
+	order.markDead()
+	p.upstream = nil
+
+	conn, err := net.Dial("tcp", order.Address())
+	if err != nil {
+		return err
+	}
+
+	upstream := NewClient(conn, errch)
+	err = upstream.Subscribe()
+	if err != nil {
+		return err
+	}
+
+	err = upstream.Authorize(order.Username, order.Password)
+	if err != nil {
+		return err
+	}
+
+	order.markConnected()
+	p.upstream = upstream
+	return nil
 }
 
 func (p *Pool) Shutdown() {
@@ -149,6 +183,14 @@ func (p *Pool) removeWorker(worker *Worker) {
 		return
 	}
 	delete(p.workers, worker)
+}
+
+func (p *Pool) closeWorkers() {
+	// disconnect all workers
+	log.Printf("Closing %d workers.", len(p.workers))
+	for worker, _ := range p.workers {
+		worker.Close()
+	}
 }
 
 func (p *Pool) nextNonce1() string {
