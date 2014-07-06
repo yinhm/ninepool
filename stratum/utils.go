@@ -161,13 +161,16 @@ func HashMerkleBranches(left *btcwire.ShaHash, right *btcwire.ShaHash) *btcwire.
 	return newSha
 }
 
-func BuildMerkleTree(mkBranches []*btcwire.ShaHash) []*btcwire.ShaHash {
+// Build Merkle Tree from rawdata, eg: from getblocktemplate transactions
+// merkles := BuildMerkleTree(mkBranches)
+// return merkles[len(merkles)-1]
+func BuildMerkleTree(rawHashes []*btcwire.ShaHash) []*btcwire.ShaHash {
 	// Calculate how many entries are required to hold the binary merkle
 	// tree as a linear array and create an array of that size.
-	nextPoT := nextPowerOfTwo(len(mkBranches))
+	nextPoT := nextPowerOfTwo(len(rawHashes))
 	arraySize := nextPoT*2 - 1
 	merkles := make([]*btcwire.ShaHash, arraySize)
-	copy(merkles, mkBranches)
+	copy(merkles, rawHashes)
 
 	// Start the array offset after the last transaction and adjusted to the
 	// next power of two.
@@ -230,16 +233,14 @@ func NewShaHashFromMerkleBranch(hash string) (*btcwire.ShaHash, error) {
 
 // Merkle branches has at least one which is coinbase hash.
 func BuildMerkleRoot(mkBranches []*btcwire.ShaHash) *btcwire.ShaHash {
-	// merkles := BuildMerkleTree(mkBranches)
-	// return merkles[len(merkles)-1]
-  root := mkBranches[0]
+	root := mkBranches[0]
 	if len(mkBranches) == 0 {
 		return root
 	}
-  for _, node := range mkBranches[1:] {
+	for _, node := range mkBranches[1:] {
 		root = HashMerkleBranches(root, node)
 	}
-  return root
+	return root
 }
 
 func SerializeHeader(job *Job, merkleRoot *btcwire.ShaHash, ntime string, nonce string) (*btcwire.BlockHeader, error) {
@@ -287,7 +288,6 @@ func HeaderToBig(header *btcwire.BlockHeader) *big.Int {
 	return ShaHashToBig(&headerHash)
 }
 
-
 // Maximum target?
 //
 // The maximum target used by SHA256 mining devices is:
@@ -299,7 +299,7 @@ func HeaderToBig(header *btcwire.BlockHeader) *big.Int {
 // Since a lower target makes Bitcoin generation more difficult, the maximum
 // target is the lowest possible difficulty.
 func Target(diff1_target string, newDiff int) {
-	
+
 }
 
 // Server as a single purpose, reverse prevhash in stratum job.
@@ -324,9 +324,9 @@ func ReversePrevHash(hash string) ([]byte, error) {
 
 func ReverseBytes(bytes []byte) []byte {
 	length := len(bytes)
-  ret := make([]byte, length)
-  for i := 0; i < length; i++ {
-    ret[i] = bytes[length-1-i]
-  }
-  return ret
+	ret := make([]byte, length)
+	for i := 0; i < length; i++ {
+		ret[i] = bytes[length-1-i]
+	}
+	return ret
 }

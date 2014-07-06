@@ -21,25 +21,25 @@ type codec struct {
 // can embed birpc.Message and just override the two fields I need to
 // change.
 type jsonMessage struct {
-	ID     uint64          `json:"id,omitempty"`
-	Func   string          `json:"method,omitempty"`
-	Args   json.RawMessage `json:"params,omitempty"`
-	Result json.RawMessage `json:"result,omitempty"`
+	ID     uint64           `json:"id,omitempty"`
+	Func   string           `json:"method,omitempty"`
+	Args   json.RawMessage  `json:"params,omitempty"`
+	Result json.RawMessage  `json:"result,omitempty"`
 	Error  *json.RawMessage `json:"error,omitempty"`
 }
 
 type responseMessage struct {
-	ID uint64 `json:"id,omitempty"`
-	Func string `json:"method,omitempty"`
-	Args interface{} `json:"params,omitempty"`
+	ID     uint64      `json:"id,omitempty"`
+	Func   string      `json:"method,omitempty"`
+	Args   interface{} `json:"params,omitempty"`
 	Result interface{} `json:"result,omitempty"`
-	Error interface{} `json:"error,omitempty"`
+	Error  interface{} `json:"error,omitempty"`
 }
 
 type Notification struct {
-	Func   string       `json:"method,omitempty"`
-	Args   interface{}  `json:"params,omitempty"`
-	Result interface{}  `json:"result,omitempty"`
+	Func   string      `json:"method,omitempty"`
+	Args   interface{} `json:"params,omitempty"`
+	Result interface{} `json:"result,omitempty"`
 }
 
 func (c *codec) ReadMessage(msg *birpc.Message) error {
@@ -86,8 +86,8 @@ func (c *codec) WriteMessage(msg *birpc.Message) error {
 	r.Result = msg.Result
 	if msg.Error != nil {
 		r.Error = &birpc.List{
-			msg.Error.Code, 
-			msg.Error.Msg, 
+			msg.Error.Code,
+			msg.Error.Msg,
 			msg.Error.Data,
 		}
 	}
@@ -129,7 +129,9 @@ func (c *codec) UnmarshalError(raw *json.RawMessage, rerr *birpc.Error) error {
 
 	rerr.Code = int(d[0].(float64))
 	rerr.Msg = d[1].(string)
-	rerr.Data = d[2]
+	if len(d) == 3 {
+		rerr.Data = d[2]
+	}
 	return nil
 }
 
