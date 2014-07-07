@@ -222,7 +222,6 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 
 	// target check
 	merkleRoot := job.MerkleRoot(context.ExtraNonce1, extraNonce2)
-	log.Printf("merkle root: %s", merkleRoot.String())
 	header, err := SerializeHeader(job, merkleRoot, ntime, nonce)
 	if err != nil {
 		return m.rpcUnknownError("job error")
@@ -282,9 +281,9 @@ func NewExtraNonceCounter() *ExtraNonceCounter {
 
 func (ct *ExtraNonceCounter) Next() string {
 	ct.lock.Lock()
-	ct.count += 1
 	buf := make([]byte, ct.Size)
-	binary.BigEndian.PutUint32(buf, ct.count)
+	binary.BigEndian.PutUint32(buf, ct.count) // start from 0000
+	ct.count += 1
 	ct.lock.Unlock()
 	return hex.EncodeToString(buf)
 }
@@ -351,9 +350,9 @@ func NewProxyExtraNonceCounter(extraNonce1 string, extra2Size, extra3Size int) *
 // TODO: what happen if nonce1 excceed max???
 func (ct *ProxyExtraNonceCounter) Next() string {
 	ct.lock.Lock()
-	ct.count += 1
 	buf := make([]byte, ct.extra1Size)
-	binary.BigEndian.PutUint32(buf, ct.count)
+	binary.BigEndian.PutUint32(buf, ct.count) // start from 0000
+	ct.count += 1
 	ct.lock.Unlock()
 	index := ct.extra1Size - ct.extra2Size
 	return ct.extraNonce1 + hex.EncodeToString(buf[index:])

@@ -15,11 +15,11 @@ func TestExtraNonceCounter(t *testing.T) {
 		t.Errorf("incorrect counter size %d != 4", counter.Size)
 	}
 
-	if counter.Next() != "08000001" {
+	if counter.Next() != "08000000" {
 		t.Errorf("incorrect next nonce1")
 	}
 
-	if counter.Next() != "08000002" {
+	if counter.Next() != "08000001" {
 		t.Errorf("incorrect next nonce1")
 	}
 
@@ -31,11 +31,11 @@ func TestExtraNonceCounter(t *testing.T) {
 func TestProxyExtraNonceCounter(t *testing.T) {
 	counter := stratum.NewProxyExtraNonceCounter("08000001", 2, 2)
 
-	if next := counter.Next(); next != "080000010001" {
+	if next := counter.Next(); next != "080000010000" {
 		t.Errorf("incorrect next nonce1: %v", next)
 	}
 
-	if counter.Next() != "080000010002" {
+	if counter.Next() != "080000010001" {
 		t.Errorf("incorrect next nonce1")
 	}
 

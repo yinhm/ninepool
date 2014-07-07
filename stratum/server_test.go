@@ -42,6 +42,7 @@ func addOrder() {
 	errch := make(chan error, 1)
 	upstream := stratum.NewClient(pcli, errch)
 	ctx := upstream.Context()
+	ctx.ExtraNonce1 ="08000002"
 	ctx.ExtraNonce2Size = 4
 
 	list := birpc.List{
@@ -214,6 +215,7 @@ func TestSubmit(t *testing.T) {
 		t.Fatalf("mining.set_difficulty not received.")
 	}
 
+	// real log of miner-pool communication which solved testnet3 block 000000002076870fe65a2b6eeed84fa892c0db924f1482243a6247d931dcab32
 	err = client.Submit(ctx.Username, ctx.CurrentJob.JobId,
 		"0001", "504e86ed", "b2957c02")
 	if err != nil {
