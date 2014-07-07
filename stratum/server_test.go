@@ -281,8 +281,13 @@ func TestNewJob(t *testing.T) {
 		t.Fatalf("mining.notify not received.")
 	}
 
-	if ctx.CurrentJob.MerkleBranch[0].String() != "ea9da84d55ebf07f47def6b9b35ab30fc18b6e980fc618f262724388f2e9c591" {
+	if !newJob.MerkleBranch[0].IsEqual(ctx.CurrentJob.MerkleBranch[0]) {
 		t.Fatalf("mining.notify: job merkle branch not equal.")
+	}
+
+	// shahash.String() are big-endian
+	if ctx.CurrentJob.MerkleBranch[0].String() == "ea9da84d55ebf07f47def6b9b35ab30fc18b6e980fc618f262724388f2e9c591" {
+		t.Fatalf("job merkle branch equals big-endian which should be little-endian.")
 	}
 
 	// submit previous job

@@ -231,16 +231,12 @@ func NewShaHashFromMerkleBranch(hash string) (*btcwire.ShaHash, error) {
 	return btcwire.NewShaHash(pbuf)
 }
 
-// Merkle branches has at least one which is coinbase hash.
-func BuildMerkleRoot(mkBranches []*btcwire.ShaHash) *btcwire.ShaHash {
-	root := mkBranches[0]
-	if len(mkBranches) == 0 {
-		return root
-	}
-	for _, node := range mkBranches[1:] {
-		root = HashMerkleBranches(root, node)
-	}
-	return root
+// Build merkle root from raw transaction hashes.
+// WARN: This should not used with stratum job merkle branches, they are
+// little-endian which is oppsite compare to bitcoin big-endian hashes.
+func BuildMerkleRoot(hashes []*btcwire.ShaHash) *btcwire.ShaHash {
+	merkles := BuildMerkleTree(hashes)
+	return merkles[len(merkles)-1]
 }
 
 func SerializeHeader(job *Job, merkleRoot *btcwire.ShaHash, ntime string, nonce string) (*btcwire.BlockHeader, error) {

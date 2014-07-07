@@ -387,6 +387,7 @@ type Job struct {
 
 func NewJob(list birpc.List) (*Job, error) {
 	//hashList := list[4].(birpc.List)
+	log.Printf("merkle branches: %v", list[4])
 	merkleBranches, err := MerkleHashesFromList(list[4])
 	if err != nil {
 		return nil, err
@@ -412,6 +413,7 @@ func MerkleHashesFromList(list interface{}) ([]*btcwire.ShaHash, error) {
 	merkleBranches := make([]*btcwire.ShaHash, len(hashList))
 	for i, h := range hashList {
 		txHash, err := NewShaHashFromMerkleBranch(h.(string))
+		log.Printf("txhash: %s", txHash.String())
 		if err != nil {
 			return nil, err
 		}
@@ -423,7 +425,7 @@ func MerkleHashesFromList(list interface{}) ([]*btcwire.ShaHash, error) {
 func (job *Job) tolist() *birpc.List {
 	merkleHashes := make([]string, len(job.MerkleBranch))
 	for i, h := range job.MerkleBranch {
-		merkleHashes[i] = h.String()
+		merkleHashes[i] = HexToString(h.Bytes())
 	}
 
 	return &birpc.List{
@@ -473,5 +475,16 @@ func (job *Job) MerkleRoot(nonce1, nonce2 string) *btcwire.ShaHash {
 	coinbase := job.buildCoinbase(nonce1, nonce2)
 	coinbaseHash, _ := btcwire.NewShaHash(coinbase)
 	hashes[0] = coinbaseHash
-	return BuildMerkleRoot(hashes)
+	return MerkleRootFromBranches(hashes)
+}
+
+func MerkleRootFromBranches(branches []*btcwire.ShaHash) *btcwire.ShaHash {
+	root := branches[0]
+	if len(branches) == 1 {
+		return root
+	}
+	for _, node := range branches[1:] {
+		root = HashMerkleBranches(root, node)
+	}
+	return root
 }

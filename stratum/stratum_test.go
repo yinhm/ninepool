@@ -276,7 +276,7 @@ func TestDifficulityWithTnx(t *testing.T) {
 	}
 }
 
-func TestBuildMerkleRoot2(t *testing.T) {
+func TestBuildMerkleRootFromBranches(t *testing.T) {
 	coinbase := stratum.HexToString(
 		stratum.CoinbaseHash(
 			"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2703291404062f503253482f04c59eb95308",
@@ -303,7 +303,7 @@ func TestBuildMerkleRoot2(t *testing.T) {
 		txList = append(txList, txHash)
 	}
 
-	merkleRoot := stratum.BuildMerkleRoot(txList)
+	merkleRoot := stratum.MerkleRootFromBranches(txList)
 	expectedRoot, _ := btcwire.NewShaHashFromStr("57db1d776125ff2d4eab6a3feec14fed78ec0ffa2099f492949caf5c4589019e")
 	if !merkleRoot.IsEqual(expectedRoot) {
 		t.Errorf("unexpected merkle root: %v", merkleRoot.String())
