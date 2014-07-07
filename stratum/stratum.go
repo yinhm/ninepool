@@ -231,21 +231,29 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	log.Printf("header hash: %s", headerHash.String())
 	shareDiff := ShaHashToBig(&headerHash)
 
-	compact := uint32(0x1d00ffff)
-	diff1 := CompactToBig(compact)
-	target := new(big.Int).Div(diff1, big.NewInt(int64(1)))
+	target := DiffToTarget(int64(1))
 	if shareDiff.Cmp(target) > 0 {
 		log.Printf("share difficulty not meet the target.")
-		log.Printf("header big: %v", shareDiff)
-		log.Printf("job target: %v", target)
+		// DEBUG: testing submit low diff share, will remove in production
+		go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce)
+		return m.rpcError(ErrorLowDifficultyShare)
 	}
 
 	go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce)
 
 	*reply = true
-	log.Printf("share accepted: %v\n", jobId)
+	log.Printf("share accepted: jobid: %s hash: %s\n", jobId, headerHash.String())
 	return nil
 }
+
+func DiffToTarget(diff int64) *big.Int {
+	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	compact := uint32(0x1d00ffff)
+	diff1 := CompactToBig(compact)
+	target := new(big.Int).Div(diff1, big.NewInt(diff))
+	return target
+}
+
 
 type NonceCounter interface {
 	Next() string
@@ -386,8 +394,6 @@ type Job struct {
 }
 
 func NewJob(list birpc.List) (*Job, error) {
-	//hashList := list[4].(birpc.List)
-	log.Printf("merkle branches: %v", list[4])
 	merkleBranches, err := MerkleHashesFromList(list[4])
 	if err != nil {
 		return nil, err
@@ -413,7 +419,6 @@ func MerkleHashesFromList(list interface{}) ([]*btcwire.ShaHash, error) {
 	merkleBranches := make([]*btcwire.ShaHash, len(hashList))
 	for i, h := range hashList {
 		txHash, err := NewShaHashFromMerkleBranch(h.(string))
-		log.Printf("txhash: %s", txHash.String())
 		if err != nil {
 			return nil, err
 		}

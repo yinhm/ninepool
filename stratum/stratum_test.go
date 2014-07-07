@@ -6,7 +6,6 @@ import (
 	"github.com/conformal/btcwire"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/stratum"
-	"math/big"
 	"testing"
 )
 
@@ -176,13 +175,9 @@ func TestDifficulity(t *testing.T) {
 	if headerHash.String() != expHeaderHash {
 		t.Errorf("wrong header hash %v", headerHash.String())
 	}
+
 	shareDiff := stratum.ShaHashToBig(&headerHash)
-
-	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
-	compact := uint32(0x1d00ffff)
-	diff1 := stratum.CompactToBig(compact)
-
-	target := new(big.Int).Div(diff1, big.NewInt(int64(1)))
+	target := stratum.DiffToTarget(int64(1))
 	if shareDiff.Cmp(target) > 0 {
 		t.Errorf("share difficulty not meet the target.")
 		t.Errorf("header big: %v", shareDiff)
@@ -242,6 +237,12 @@ func TestDifficulityWithTnx(t *testing.T) {
 	// NOMP header hash: 3c0bbc0eac6090294a3b2483052deb6934d3e848f757fdca86091a4200000000
 	if headerHash.String() != expHeaderHash {
 		t.Errorf("wrong header hash %v", headerHash.String())
+	}
+
+	shareDiff := stratum.ShaHashToBig(&headerHash)
+	target := stratum.DiffToTarget(int64(1))
+	if shareDiff.Cmp(target) > 0 {
+		t.Errorf("share difficulty not meet the target.")
 	}
 }
 
