@@ -42,7 +42,6 @@ func NewPool(order *Order, errch chan error) (pool *Pool, err error) {
 		return nil, err
 	}
 
-	order.markConnected()
 	return NewPoolWithConn(order, upstream, errch)
 }
 
@@ -72,6 +71,8 @@ func NewPoolWithConn(order *Order, upstream *StratumClient, errch chan error) (*
 	go p.Serve(DefaultPoolTimeout, errch)
 
 	context.pid = p.id
+	order.markConnected()
+	p.active = true
 	return p, nil
 }
 
@@ -134,7 +135,7 @@ func (p *Pool) isAvailable() bool {
 // FIXME: reach limit when:
 //  - no more nonce available
 //  - reach limited ghs
-func (p *Pool) readLimit() bool {
+func (p *Pool) reachLimit() bool {
 	return false
 }
 

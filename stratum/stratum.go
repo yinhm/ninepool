@@ -240,7 +240,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce)
 
 	*reply = true
-	log.Printf("share accepted: jobid: %s hash: %s\n", jobId, headerHash.String())
+	log.Printf("[proxy] share accepted: #%s, hash: %s\n", jobId, headerHash.String())
 	return nil
 }
 
