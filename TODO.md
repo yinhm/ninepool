@@ -40,3 +40,13 @@ x11
     
 
   * Support for proxy virtual devices has been extended to include the stratum protocol when the upstream pool selected is also stratum and supplies sufficient extranonce2 space. If the upstream pool does not meet this criteria, stratum clients will be disconnected and new ones will fail to subscribe. You can take advantage of this to failover to the getwork proxy. Support for upstream getwork pools is impossble, but GBT is planned.
+
+
+
+== 买家保护系统 ==
+
+ - 预约算力制
+ - VIP优先同价位制
+ - 自动加价系统
+ - FEE0.2%  挂单设置0.4%自动VIP
+ - 全池算力10G VIP算力3G不能再获得VIP资格
