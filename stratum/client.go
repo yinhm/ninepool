@@ -126,11 +126,5 @@ func (c *StratumClient) Authorize(username, password string) error {
 func (c *StratumClient) Submit(username, jobId, extranonce2, ntime, nonce string) error {
 	var accepted bool
 	params := birpc.List{username, jobId, extranonce2, ntime, nonce}
-	err := c.endpoint.Call("mining.submit", params, &accepted)
-	if err != nil {
-		log.Printf("share rejected, %s.", err.Error())
-		return err
-	}
-	log.Printf("share accepted: %v\n", accepted)
-	return nil
+	return c.endpoint.Call("mining.submit", params, &accepted)
 }

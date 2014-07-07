@@ -244,11 +244,17 @@ func (p *Pool) broadcast(job *Job) {
 }
 
 // submit job to upstream
-func (p *Pool) submit(jobId, extraNonce1, extraNonce2, ntime, nonce string) {
+func (p *Pool) submit(jobId, extraNonce1, extraNonce2, ntime, nonce, hash string) {
 	ctx := p.Context()
 	if ctx == nil {
 		log.Printf("share can not submit, lost connection to pool\n")
 	}
 	nonce2 := p.nonceCounter.Nonce1Suffix(extraNonce1) + extraNonce2
-	p.upstream.Submit(ctx.Username, jobId, nonce2, ntime, nonce)
+	err := p.upstream.Submit(ctx.Username, jobId, nonce2, ntime, nonce)
+	// TODO: log upstream acceptence
+	if err != nil {
+		log.Printf("[Pool] share rejected %s, %s.", hash, err.Error())
+		return
+	}
+	log.Printf("[Pool] share accepted: %s\n", hash)
 }

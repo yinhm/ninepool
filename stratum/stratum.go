@@ -233,14 +233,14 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	if shareDiff.Cmp(target) > 0 {
 		log.Printf("share difficulty not meet the target.")
 		// DEBUG: testing submit low diff share, will remove in production
-		go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce)
+		go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
 		return m.rpcError(ErrorLowDifficultyShare)
 	}
 
-	go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce)
+	go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
 
 	*reply = true
-	log.Printf("[proxy] share accepted: #%s, hash: %s\n", jobId, headerHash.String())
+	log.Printf("[Proxy] share accepted: #%s, hash: %s\n", jobId, headerHash.String())
 	return nil
 }
 
