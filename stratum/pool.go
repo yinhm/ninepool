@@ -115,19 +115,41 @@ func (p *Pool) isClosed() bool {
 	if p.upstream == nil {
 		return true
 	}
-
 	return p.closing
 }
 
-func (p *Pool) reconnect(errch chan error) error {
-	p.closeWorkers()
+func (p *Pool) isAvailable() bool {
+	if p.isClosed() {
+		return false
+	}
+	if !p.active {
+		return false
+	}
+	if p.reachLimit() {
+		return false
+	}
+	return true
+}
 
+// FIXME: reach limit when:
+//  - no more nonce available
+//  - reach limited ghs
+func (p *Pool) readLimit() bool {
+	return false
+}
+
+func (p *Pool) reconnect(errch chan error) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
 	order := p.order
 	order.markDead()
 	p.upstream = nil
+	p.active = false
+
+	// close worker after upstream resetted, no more client can connect or
+	// reconnect between the pool reconnection.
+	p.closeWorkers()
 
 	conn, err := net.Dial("tcp", order.Address())
 	if err != nil {
@@ -147,6 +169,8 @@ func (p *Pool) reconnect(errch chan error) error {
 
 	order.markConnected()
 	p.upstream = upstream
+	p.active = true
+	log.Printf("Pool %s reconnected.", p.address)
 	return nil
 }
 

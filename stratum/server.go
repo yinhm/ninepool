@@ -195,7 +195,9 @@ func (s *StratumServer) firstPool() (*Pool, error) {
 	defer s.lock.Unlock()
 
 	for _, pool := range s.pools {
-		return pool, nil
+		if pool.isAvailable() {
+			return pool, nil
+		}
 	}
 
 	return nil, errors.New("No pool available.")

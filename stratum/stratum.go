@@ -79,7 +79,6 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 
 	context.ExtraNonce1 = nonce1
 	context.ExtraNonce2Size = nonce2Size
-	log.Printf("worker context: %v", context)
 
 	go m.notifyAfterSubscribe(e)
 
@@ -252,7 +251,6 @@ func DiffToTarget(diff int64) *big.Int {
 	target := new(big.Int).Div(diff1, big.NewInt(diff))
 	return target
 }
-
 
 type NonceCounter interface {
 	Next() string
