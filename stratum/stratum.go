@@ -12,6 +12,7 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -97,6 +98,9 @@ func (m *Mining) notifyAfterSubscribe(e *birpc.Endpoint) {
 	msg.Func = "mining.set_difficulty"
 	msg.Args = &birpc.List{DefaultDifficulty}
 	e.Notify(&msg)
+
+	context.PrevDifficulty = DefaultDifficulty
+	context.Difficulty = DefaultDifficulty
 
 	job, err := context.CurrentJob()
 	if err != nil {
@@ -227,21 +231,39 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	}
 	headerHash, _ := header.BlockSha()
 	log.Printf("header hash: %s", headerHash.String())
-	shareDiff := ShaHashToBig(&headerHash)
 
-	target := DiffToTarget(int64(1))
-	if shareDiff.Cmp(target) > 0 {
+	difficulty := context.Difficulty
+	shareDiff, err := shareDifficulty(&headerHash, int64(1))
+	log.Printf("shareDiff: %.4f/%.8f", difficulty, shareDiff)
+	if err != nil || shareDiff/difficulty < 0.99 {
 		log.Printf("share difficulty not meet the target.")
 		// DEBUG: testing submit low diff share, will remove in production
-		go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
+		go pool.submit(shareDiff, jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
 		return m.rpcError(ErrorLowDifficultyShare)
 	}
 
-	go pool.submit(jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
+	go pool.submit(shareDiff, jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
 
 	*reply = true
 	log.Printf("[Proxy] share accepted: #%s, hash: %s\n", jobId, headerHash.String())
 	return nil
+}
+
+func shareDifficulty(headerHash *btcwire.ShaHash, multiplier int64) (float64, error) {
+	// diff1 := 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	compact := uint32(0x1d00ffff)
+	diff1 := CompactToBig(compact)
+
+	headerBigInt := ShaHashToBig(headerHash)
+	denominator := new(big.Int).Div(headerBigInt, big.NewInt(multiplier))
+
+	shareDiff := new(big.Rat).SetFrac(diff1, denominator)
+	outString := shareDiff.FloatString(10)
+	diff, err := strconv.ParseFloat(outString, 64)
+	if err != nil {
+		return 0, err
+	}
+	return diff, nil
 }
 
 func DiffToTarget(diff int64) *big.Int {
