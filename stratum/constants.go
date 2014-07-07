@@ -16,7 +16,7 @@ const (
 	ExtraNonce2Size = 2
 	ExtraNonce3Size = 2 // two bytes, up to 65535 clients.
 
-	DefaultDifficulty = 1 // now for testing only
+	DefaultDifficulty = 0.1 // now for testing only
 )
 
 var errorText = map[int]string{

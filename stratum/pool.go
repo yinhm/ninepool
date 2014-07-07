@@ -51,29 +51,35 @@ func FindPool(pid int) (*Pool, bool) {
 }
 
 func NewPoolWithConn(order *Order, upstream *StratumClient, errch chan error) (*Pool, error) {
-	context := upstream.Context()
-	if context.ExtraNonce2Size != ExtraNonce2Size+ExtraNonce3Size {
-		errmsg := fmt.Sprintf("Invalid nonce sizes, must add up to %d", context.ExtraNonce2Size)
-		return nil, errors.New(errmsg)
-	}
-
 	p := &Pool{
-		id:       order.Id,
-		address:  order.Address(),
-		order:    order,
-		upstream: upstream,
-		workers:  make(map[*Worker]bool),
-		jobs:     make(map[string]*Job),
+		id:      order.Id,
+		address: order.Address(),
+		order:   order,
+		workers: make(map[*Worker]bool),
+		jobs:    make(map[string]*Job),
 	}
-
-	p.nonceCounter = NewProxyExtraNonceCounter(context.ExtraNonce1, ExtraNonce2Size, ExtraNonce3Size)
+	err := p.setUpstream(upstream)
+	if err != nil {
+		return nil, err
+	}
 
 	go p.Serve(DefaultPoolTimeout, errch)
 
-	context.pid = p.id
 	order.markConnected()
-	p.active = true
 	return p, nil
+}
+
+func (p *Pool) setUpstream(upstream *StratumClient) error {
+	p.upstream = upstream
+	context := upstream.Context()
+	if context.ExtraNonce2Size != ExtraNonce2Size+ExtraNonce3Size {
+		errmsg := fmt.Sprintf("Invalid nonce sizes, must add up to %d", context.ExtraNonce2Size)
+		return errors.New(errmsg)
+	}
+	context.pid = p.id
+	p.nonceCounter = NewProxyExtraNonceCounter(context.ExtraNonce1, ExtraNonce2Size, ExtraNonce3Size)
+	p.active = true
+	return nil
 }
 
 func (p *Pool) Serve(timeout time.Duration, errch chan error) {
@@ -169,8 +175,11 @@ func (p *Pool) reconnect(errch chan error) error {
 	}
 
 	order.markConnected()
-	p.upstream = upstream
-	p.active = true
+
+	err = p.setUpstream(upstream)
+	if err != nil {
+		return err
+	}
 	log.Printf("Pool %s reconnected.", p.address)
 	return nil
 }
@@ -244,10 +253,14 @@ func (p *Pool) broadcast(job *Job) {
 }
 
 // submit job to upstream
-func (p *Pool) submit(jobId, extraNonce1, extraNonce2, ntime, nonce, hash string) {
+func (p *Pool) submit(diff float64, jobId, extraNonce1, extraNonce2, ntime, nonce, hash string) {
 	ctx := p.Context()
 	if ctx == nil {
 		log.Printf("share can not submit, lost connection to pool\n")
+	}
+	if diff/ctx.Difficulty < 0.99 {
+		log.Printf("[Pool] Low diff, will not submit.")
+		return
 	}
 	nonce2 := p.nonceCounter.Nonce1Suffix(extraNonce1) + extraNonce2
 	err := p.upstream.Submit(ctx.Username, jobId, nonce2, ntime, nonce)
