@@ -62,6 +62,7 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 	subId := randhash() // unique across server
 	context.SubId = subId
 
+	// Move to pool.addWorker?, let us reusing nonce1.
 	nonce1 := context.pool.nextNonce1()
 	nonce2Size := context.pool.nonce2Size()
 	// if err != nil {
@@ -274,6 +275,7 @@ func DiffToTarget(diff int64) *big.Int {
 
 type NonceCounter interface {
 	Next() string
+	// session id
 	Nonce2Size() int
 	Nonce1Suffix(string) string
 }
@@ -285,8 +287,11 @@ type ExtraNonceCounter struct {
 	NoncePlaceHolder []byte
 }
 
+// Last 5 most-significant bits represents instance_id
+// The rest is just an iterator of jobs.
 func NewExtraNonceCounter() *ExtraNonceCounter {
 	var count uint32 = 1 << 27
+	// the same in CoinbaseTransaction, not sure where its from.
 	p, _ := hex.DecodeString("f000000ff111111f")
 
 	ct := &ExtraNonceCounter{
@@ -297,6 +302,7 @@ func NewExtraNonceCounter() *ExtraNonceCounter {
 	return ct
 }
 
+// session id, server id take 5 bits, leave 27 bits or 2**27 for workers.
 func (ct *ExtraNonceCounter) Next() string {
 	ct.lock.Lock()
 	buf := make([]byte, ct.Size)
@@ -340,8 +346,6 @@ func (ct *ExtraNonceCounter) Nonce1Suffix(nonce1 string) string {
 // `extraNonce2Size` and `extraNonce3Size` control the how the upstream's
 // `extraNonce2` is split. Thus `extraNonce2Size` and `extraNonce3Size` should
 // add up the to the upstream's `extraNonce2`'s size.
-
-// Zero extranonce is reserved for getwork connections.
 type ProxyExtraNonceCounter struct {
 	lock        sync.Mutex
 	count       uint32
@@ -366,6 +370,7 @@ func NewProxyExtraNonceCounter(extraNonce1 string, extra2Size, extra3Size int) *
 }
 
 // TODO: what happen if nonce1 excceed max???
+// 2 ** 16 or 65536 for workers
 func (ct *ProxyExtraNonceCounter) Next() string {
 	ct.lock.Lock()
 	buf := make([]byte, ct.extra1Size)
