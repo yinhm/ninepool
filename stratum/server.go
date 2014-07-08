@@ -89,6 +89,11 @@ func (s *StratumServer) serve(l net.Listener) {
 func (s *StratumServer) ServeConn(conn net.Conn) {
 	defer conn.Close()
 
+	// decline immediately if no pools available
+	if len(s.pools) == 0 {
+		return
+	}
+
 	endpoint := s.newEndpoint(conn)
 
 	log.Printf("Client connected: %v\n", conn.RemoteAddr())
