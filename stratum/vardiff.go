@@ -39,45 +39,104 @@ func (r *RingFloat64) Len() int {
 	return r.ring.Len()
 }
 
+func (r *RingFloat64) Size() int {
+	size := 0
+	r.ring.Do(func(p interface{}) {
+		if p != nil {
+			size++
+		}
+	})
+	return size
+}
+
 func (r *RingFloat64) Clear() {
 	r.ring = ring.New(r.max)
 }
 
+type VarDiffConfig struct {
+	min              float64
+	max              float64
+	tMin             int // target min
+	tMax             int // target max
+	targetDuration   int64
+	retargetDuration int64
+	x2mode           bool
+}
 
 type vardiff struct {
-	bSize int
-	tMin  int
-	tMax  int
-	retarget int64
+	config       *VarDiffConfig
+	timeBuffer   *RingFloat64
+	retargetTime time.Time
+	updated      time.Time
 }
 
 // eg: NewVarDiff(16.0, 512.0, 15, 90, 30)
-func NewVardiff(min, max float64, target, retarget, variance int) *vardiff {
-  varLimit := int(float64(target) * (float64(variance) / 100.0))
-	bufferSize := retarget / target * 4
+func NewVarDiff(min, max float64, target, retarget, variance int) *vardiff {
+	varLimit := int(float64(target) * (float64(variance) / 100.0))
 	tMin := target - varLimit
 	tMax := target + varLimit
 
-	return &vardiff {
-		bSize: bufferSize,
-		tMin: tMin,
-		tMax: tMax,
-		retarget: int64(retarget),
+	config := &VarDiffConfig{
+		min:              0.1,
+		max:              1024.0,
+		tMin:             tMin,
+		tMax:             tMax,
+		targetDuration:   int64(target),
+		retargetDuration: int64(retarget),
+		x2mode:           true,
+	}
+
+	ts := time.Now()
+	retargetTime := ts.Add(-time.Duration(config.retargetDuration/2) * time.Second)
+	bufferSize := retarget / target * 4
+
+	return &vardiff{
+		config:       config,
+		timeBuffer:   NewRingFloat64(bufferSize),
+		retargetTime: retargetTime,
+		updated:      ts,
 	}
 }
 
 // Submit shares, calcuate new difficulty.
-func (v *vardiff) Submit(client *Worker) float64 {
-  // var lastTs int64
-  var lastRtc int64
+func (v *vardiff) Submit(worker *Worker) {
+	ts := time.Now()
 
-  ts := time.Now().Unix()
+	// log last share work time
+	v.timeBuffer.Append(ts.Sub(v.updated).Seconds())
+	v.updated = ts
 
-  if lastRtc != 0.0 {
-    lastRtc = ts - v.retarget / 2
-    // lastTs = ts
-    timeBuffer := NewRingFloat64(v.bSize)
-		return timeBuffer.Avg()
-  }
-  return 0.0
+	sinceRetarget := int64(ts.Sub(v.retargetTime).Seconds())
+	// no need to retarget
+	if sinceRetarget < v.config.retargetDuration && v.timeBuffer.Size() > 0 {
+		return
+	}
+
+	v.retargetTime = ts
+	avg := int(v.timeBuffer.Avg())
+	ddiff := float64(v.config.targetDuration) / float64(avg)
+
+	workerDiff := worker.context.Difficulty
+	if avg > v.config.tMax && workerDiff > v.config.min {
+		// lower diff, more shares
+		if v.config.x2mode {
+			ddiff = 0.5
+		}
+	} else if avg < v.config.tMin {
+		// increase diff, less shares
+		if v.config.x2mode {
+			ddiff = 2
+		}
+	}
+
+	newDiff := workerDiff * ddiff
+	if newDiff < v.config.min {
+		newDiff = v.config.min
+	}
+	if newDiff > v.config.max {
+		newDiff = v.config.max
+	}
+
+	v.timeBuffer.Clear()
+	worker.newDifficulty(newDiff)
 }

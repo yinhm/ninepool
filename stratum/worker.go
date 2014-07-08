@@ -2,6 +2,7 @@ package stratum
 
 import (
 	"errors"
+	"fmt"
 	"github.com/yinhm/ninepool/birpc"
 	"log"
 	"sync"
@@ -106,8 +107,9 @@ func (w *Worker) newExtraNonce() {
 
 }
 
-func (w *Worker) newDifficulty() {
-
+func (w *Worker) newDifficulty(diff float64) {
+	fmtDiff := fmt.Sprintf("%.4f", diff)
+	log.Printf("worker diff set to %s.", fmtDiff)
 }
 
 // Update the shares lists with the given share to compute hashrate
