@@ -258,7 +258,7 @@ func (p *Pool) submit(diff float64, jobId, extraNonce1, extraNonce2, ntime, nonc
 		log.Printf("share can not submit, lost connection to pool\n")
 	}
 	if diff/ctx.Difficulty < 0.99 {
-		log.Printf("[Pool] Low diff, will not submit.")
+		log.Printf("[Pool] diff lower than the pool, no submit.")
 		return
 	}
 	nonce2 := p.nonceCounter.Nonce1Suffix(extraNonce1) + extraNonce2

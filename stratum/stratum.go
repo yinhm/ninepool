@@ -170,7 +170,6 @@ func (m *Mining) Authorize(args *interface{}, reply *bool, e *birpc.Endpoint) er
 
 func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error {
 	params := (*args).([]interface{})
-	log.Printf("params: %v", params)
 	username := params[0].(string)
 	jobId := params[1].(string)
 	extraNonce2 := params[2].(string)
@@ -230,13 +229,12 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 		return m.rpcUnknownError("job error")
 	}
 	headerHash, _ := header.BlockSha()
-	log.Printf("header hash: %s", headerHash.String())
 
 	difficulty := context.Difficulty
 	shareDiff, err := shareDifficulty(&headerHash, int64(1))
-	log.Printf("shareDiff: %.4f/%.8f", difficulty, shareDiff)
+	log.Printf("share diff: %.4f/%.8f", difficulty, shareDiff)
 	if err != nil || shareDiff/difficulty < 0.99 {
-		log.Printf("share difficulty not meet the target.")
+		log.Printf("[Proxy] share rejected: low difficulty, %s", headerHash.String())
 		// DEBUG: testing submit low diff share, will remove in production
 		go pool.submit(shareDiff, jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
 		return m.rpcError(ErrorLowDifficultyShare)
