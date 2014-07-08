@@ -25,7 +25,7 @@ type Pool struct {
 	nonceCounter NonceCounter
 }
 
-func NewPool(order *Order, errch chan error) (pool *Pool, err error) {
+func NewPool(server *StratumServer, order *Order, errch chan error) (pool *Pool, err error) {
 	conn, err := net.Dial("tcp", order.Address())
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func NewPool(order *Order, errch chan error) (pool *Pool, err error) {
 		return nil, err
 	}
 
-	return NewPoolWithConn(order, upstream, errch)
+	return NewPoolWithConn(server, order, upstream, errch)
 }
 
 func FindPool(pid int) (*Pool, bool) {
@@ -50,7 +50,7 @@ func FindPool(pid int) (*Pool, bool) {
 	return p, ok
 }
 
-func NewPoolWithConn(order *Order, upstream *StratumClient, errch chan error) (*Pool, error) {
+func NewPoolWithConn(server *StratumServer, order *Order, upstream *StratumClient, errch chan error) (*Pool, error) {
 	p := &Pool{
 		id:      order.Id,
 		address: order.Address(),
@@ -63,7 +63,7 @@ func NewPoolWithConn(order *Order, upstream *StratumClient, errch chan error) (*
 		return nil, err
 	}
 
-	go p.Serve(DefaultPoolTimeout, errch)
+	go p.Serve(server, DefaultPoolTimeout, errch)
 
 	order.markConnected()
 	return p, nil
@@ -82,7 +82,7 @@ func (p *Pool) setUpstream(upstream *StratumClient) error {
 	return nil
 }
 
-func (p *Pool) Serve(timeout time.Duration, errch chan error) {
+func (p *Pool) Serve(server *StratumServer, timeout time.Duration, errch chan error) {
 	for {
 		if p.isClosed() {
 			break
@@ -91,18 +91,17 @@ func (p *Pool) Serve(timeout time.Duration, errch chan error) {
 		select {
 		case job := <-ctx.JobCh:
 			p.newJob(job)
-		case _ = <-ctx.ShutdownCh:
-			p.Shutdown()
-			break
 		case err := <-errch:
 			log.Printf("Pool %s lost connection: %s, try reconnect...", p.address, err)
 			err = p.reconnect(errch)
 			if err != nil {
 				log.Printf("reconnect to %s failed, shutdown...", p.address)
+				server.removePool(p)
 				p.Shutdown()
 			}
 		case <-time.After(timeout):
 			log.Printf("Pool %s timeout in %.1f minutes.", p.address, timeout.Minutes())
+			server.removePool(p)
 			p.Shutdown()
 			break
 		}
@@ -203,7 +202,7 @@ func (p *Pool) Shutdown() {
 
 	log.Printf("Pool %s stopped.", p.address)
 
-	// relocate miners
+	// TODO: relocate miners
 }
 
 func (p *Pool) addWorker(worker *Worker) {

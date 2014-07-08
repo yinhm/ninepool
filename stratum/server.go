@@ -22,7 +22,6 @@ type StratumServer struct {
 	options Options
 	workers map[*birpc.Endpoint]*Worker
 	pools   map[uint64]*Pool
-	perrchs map[uint64]chan error // pool error chans
 	orders  map[uint64]*Order
 	errCh   chan error
 	sigCh   chan os.Signal
@@ -39,7 +38,6 @@ func NewStratumServer(options Options) *StratumServer {
 		options: options,
 		workers: make(map[*birpc.Endpoint]*Worker),
 		pools:   make(map[uint64]*Pool),
-		perrchs: make(map[uint64]chan error),
 		orders:  InitOrders("x11"),
 		errCh:   make(chan error),
 		sigCh:   make(chan os.Signal),
@@ -143,7 +141,7 @@ func (s *StratumServer) activeOrder(order *Order) {
 	log.Printf("connecting to #%d, %s ...\n", order.Id, order.Address())
 
 	errch := make(chan error, 1)
-	pool, err := NewPool(order, errch)
+	pool, err := NewPool(s, order, errch)
 	if err != nil {
 		log.Printf("Failed to connecting the pool %s: %s\n", order.Address(), err.Error())
 		order.markDead()
@@ -155,7 +153,6 @@ func (s *StratumServer) activeOrder(order *Order) {
 
 func (s *StratumServer) ActivePool(order *Order, pool *Pool, errch chan error) {
 	s.lock.Lock()
-	s.perrchs[order.Id] = errch
 	s.pools[order.Id] = pool
 	s.lock.Unlock()
 }
@@ -178,9 +175,17 @@ func (s *StratumServer) stopListen() {
 
 func (s *StratumServer) stopPools() {
 	for _, pool := range s.pools {
+		s.removePool(pool)
 		pool.Shutdown()
-		// TODO: remove it from pools list?
 	}
+}
+
+func (s *StratumServer) removePool(p *Pool) {
+	s.lock.Lock()
+	if _, ok := s.pools[p.id]; ok {
+		delete(s.pools, p.id)
+	}
+	s.lock.Unlock()
 }
 
 func (s *StratumServer) stopWorkers() {
