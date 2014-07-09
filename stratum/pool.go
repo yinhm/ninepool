@@ -10,7 +10,7 @@ import (
 )
 
 type Pool struct {
-	lock       sync.Mutex
+	lock       sync.RWMutex
 	id         uint64
 	address    string
 	order      *Order
@@ -111,6 +111,9 @@ func (p *Pool) Serve(server *StratumServer, timeout time.Duration, errch chan er
 }
 
 func (p *Pool) Context() *ClientContext {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
 	if p.upstream == nil {
 		return nil
 	}
@@ -118,6 +121,9 @@ func (p *Pool) Context() *ClientContext {
 }
 
 func (p *Pool) isClosed() bool {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
 	if p.upstream == nil {
 		return true
 	}
@@ -206,7 +212,9 @@ func (p *Pool) Shutdown() {
 }
 
 func (p *Pool) addWorker(worker *Worker) {
+	p.lock.Lock()
 	p.workers[worker] = true
+	p.lock.Unlock()
 }
 
 func (p *Pool) removeWorker(worker *Worker) {
@@ -234,12 +242,22 @@ func (p *Pool) nonce2Size() int {
 	return p.nonceCounter.Nonce2Size()
 }
 
+func (p *Pool) findJob(jobId string) (*Job, bool) {
+	p.lock.RLock()
+	job, ok := p.jobs[jobId]
+	p.lock.RUnlock()
+
+	return job, ok
+}
+
 func (p *Pool) newJob(job *Job) {
+	p.lock.Lock()
 	if job.CleanJobs {
 		p.jobs = make(map[string]*Job)
 	}
 	p.jobs[job.JobId] = job
 	p.CurrentJob = job
+	p.lock.Unlock()
 	go p.broadcast(job)
 }
 
@@ -248,7 +266,10 @@ func (p *Pool) broadcast(job *Job) {
 	for worker, _ := range p.workers {
 		worker.sendJob(job)
 	}
-	log.Printf("Broadcast job from %s to %d workers.", p.address, len(p.workers))
+	p.lock.RLock()
+	count := len(p.workers)
+	p.lock.RUnlock()
+	log.Printf("Broadcast job from %s to %d workers.", p.address, count)
 }
 
 // submit job to upstream

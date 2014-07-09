@@ -43,7 +43,7 @@ func NewWorker(endpoint *birpc.Endpoint, timeout time.Duration) *Worker {
 
 func (w *Worker) Close() {
 	w.lock.Lock()
-	w.lock.Unlock()
+	defer w.lock.Unlock()
 
 	if w.closing == true {
 		return

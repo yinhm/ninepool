@@ -200,7 +200,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	}
 
 	pool := context.pool
-	job, ok := pool.jobs[jobId]
+	job, ok := pool.findJob(jobId)
 	if !ok {
 		return m.rpcError(ErrorJobNotFound)
 	}
