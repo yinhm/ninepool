@@ -89,7 +89,7 @@ func (m *Mining) Subscribe(req *interface{}, reply *interface{}, e *birpc.Endpoi
 
 // server mining.notify -> client
 func (m *Mining) notifyAfterSubscribe(e *birpc.Endpoint) {
-	e.WaitServer()
+	time.Sleep(50 * time.Millisecond)
 
 	context := e.Context.(*Context)
 

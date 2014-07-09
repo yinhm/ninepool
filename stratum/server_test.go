@@ -42,7 +42,7 @@ func addOrder() {
 	errch := make(chan error, 1)
 	upstream := stratum.NewClient(pcli, errch)
 	ctx := upstream.Context()
-	ctx.ExtraNonce1 ="08000002"
+	ctx.ExtraNonce1 = "08000002"
 	ctx.ExtraNonce2Size = 4
 
 	list := birpc.List{
@@ -68,6 +68,20 @@ func closeServer() {
 	server.Shutdown()
 	cli.Close()
 	srv.Close()
+}
+
+func waitJobChannel(t *testing.T, ctx *stratum.ClientContext) *stratum.Job {
+	timeout := time.Duration(100) * time.Millisecond
+	var j *stratum.Job
+
+	select {
+	case j = <-ctx.JobCh:
+		break
+	case <-time.After(timeout):
+		t.Fatalf("mining.notify timtout.")
+	}
+
+	return j
 }
 
 func TestSubscribe(t *testing.T) {
@@ -133,12 +147,12 @@ func TestSetDifficulty(t *testing.T) {
 		t.Fatalf("Client not active.")
 	}
 
-	time.Sleep(20 * time.Millisecond) // wait for notification
 	ctx := client.Context()
+	curJob := waitJobChannel(t, ctx)
 	if ctx.Difficulty != stratum.DefaultDifficulty {
 		t.Fatalf("mining.set_difficulty not received.")
 	}
-	if ctx.CurrentJob.JobId != "bf" {
+	if curJob.JobId != "bf" {
 		t.Fatalf("mining.notify not received.")
 	}
 
@@ -210,19 +224,19 @@ func TestSubmit(t *testing.T) {
 		t.Fatalf("mining authorize failed")
 	}
 
-	time.Sleep(20 * time.Millisecond) // wait for job
+	curJob := waitJobChannel(t, ctx)
 	if ctx.Difficulty != stratum.DefaultDifficulty {
 		t.Fatalf("mining.set_difficulty not received.")
 	}
 
 	// real log of miner-pool communication which solved testnet3 block 000000002076870fe65a2b6eeed84fa892c0db924f1482243a6247d931dcab32
-	err = client.Submit(ctx.Username, ctx.CurrentJob.JobId,
+	err = client.Submit(ctx.Username, curJob.JobId,
 		"0001", "504e86ed", "b2957c02")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	err = client.Submit(ctx.Username, ctx.CurrentJob.JobId,
+	err = client.Submit(ctx.Username, curJob.JobId,
 		"0001", "504e86ed", "b2957c02")
 	err2 := err.(*birpc.Error)
 	if err2 == nil || err2.Code != stratum.ErrorDuplicateShare {
@@ -250,12 +264,12 @@ func TestNewJob(t *testing.T) {
 		t.Fatalf("mining authorize failed")
 	}
 
-	time.Sleep(20 * time.Millisecond) // wait for job
-	if ctx.CurrentJob.JobId != "bf" {
+	curJob := waitJobChannel(t, ctx)
+	if curJob.JobId != "bf" {
 		t.Fatalf("mining.notify not received.")
 	}
 
-	prevJobId := ctx.CurrentJob.JobId
+	prevJobId := curJob.JobId
 	// push newjob
 	orderId := 1
 	pool, ok := stratum.FindPool(orderId)
@@ -278,17 +292,17 @@ func TestNewJob(t *testing.T) {
 	newJob, _ := stratum.NewJob(list)
 	upstramCtx.JobCh <- newJob
 
-	time.Sleep(20 * time.Millisecond) // wait for server push new job
-	if ctx.CurrentJob.JobId != "foo" {
+	curJob = waitJobChannel(t, ctx)
+	if curJob.JobId != "foo" {
 		t.Fatalf("mining.notify not received.")
 	}
 
-	if !newJob.MerkleBranch[0].IsEqual(ctx.CurrentJob.MerkleBranch[0]) {
+	if !newJob.MerkleBranch[0].IsEqual(curJob.MerkleBranch[0]) {
 		t.Fatalf("mining.notify: job merkle branch not equal.")
 	}
 
 	// shahash.String() are big-endian
-	if ctx.CurrentJob.MerkleBranch[0].String() == "ea9da84d55ebf07f47def6b9b35ab30fc18b6e980fc618f262724388f2e9c591" {
+	if curJob.MerkleBranch[0].String() == "ea9da84d55ebf07f47def6b9b35ab30fc18b6e980fc618f262724388f2e9c591" {
 		t.Fatalf("job merkle branch equals big-endian which should be little-endian.")
 	}
 
