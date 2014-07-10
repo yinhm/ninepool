@@ -208,6 +208,18 @@ func (s *StratumServer) firstPool() (*Pool, error) {
 	return nil, errors.New("No pool available.")
 }
 
+// for testing
+func (s *StratumServer) FirstWorker() (*Worker, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	for _, worker := range s.workers {
+		return worker, nil
+	}
+
+	return nil, errors.New("No worker")
+}
+
 // func (s *StratumServer) Connection(e *birpc.Endpoint) (conn *Connection, err error) {
 // 	conn, ok := s.connections[e]
 // 	if !ok {

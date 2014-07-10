@@ -2,6 +2,7 @@ package stratum
 
 import (
 	"container/ring"
+	"errors"
 	"time"
 )
 
@@ -10,9 +11,13 @@ type RingFloat64 struct {
 	ring *ring.Ring
 }
 
-func NewRingFloat64(n int) *RingFloat64 {
+func NewRingFloat64(n int) (*RingFloat64, error) {
+	// lower n makes this pointless
+	if n < 5 {
+		return nil, errors.New("too low ring buffer maxsize.")
+	}
 	r := ring.New(n)
-	return &RingFloat64{max: n, ring: r}
+	return &RingFloat64{max: n, ring: r}, nil
 }
 
 func (r *RingFloat64) Append(x float64) {
@@ -54,13 +59,36 @@ func (r *RingFloat64) Clear() {
 }
 
 type VarDiffConfig struct {
+	x2mode           bool
 	min              float64
 	max              float64
-	tMin             int // target min
-	tMax             int // target max
-	targetDuration   int64
-	retargetDuration int64
-	x2mode           bool
+	TargetMin        int // target min
+	TargetMax        int // target max
+	TargetDuration   int
+	RetargetDuration int
+}
+
+func NewVarDiffConfig(min, max float64, target, retarget, variance int) *VarDiffConfig {
+	varLimit := int(float64(target) * (float64(variance) / 100.0))
+	if varLimit < 1 {
+		varLimit = 1
+	}
+	tMin := target - varLimit
+	tMax := target + varLimit
+
+	return &VarDiffConfig{
+		x2mode:           false,
+		min:              0.1,
+		max:              1024.0,
+		TargetMin:        tMin,
+		TargetMax:        tMax,
+		TargetDuration:   target,
+		RetargetDuration: retarget,
+	}
+}
+
+func (c *VarDiffConfig) BufferSize() int {
+	return 4 * c.RetargetDuration / c.TargetDuration
 }
 
 type vardiff struct {
@@ -71,65 +99,57 @@ type vardiff struct {
 }
 
 // eg: NewVarDiff(16.0, 512.0, 15, 90, 30)
-func NewVarDiff(min, max float64, target, retarget, variance int) *vardiff {
-	varLimit := int(float64(target) * (float64(variance) / 100.0))
-	tMin := target - varLimit
-	tMax := target + varLimit
-
-	config := &VarDiffConfig{
-		min:              0.1,
-		max:              1024.0,
-		tMin:             tMin,
-		tMax:             tMax,
-		targetDuration:   int64(target),
-		retargetDuration: int64(retarget),
-		x2mode:           true,
-	}
-
+func NewVarDiff(config *VarDiffConfig) (*vardiff, error) {
 	ts := time.Now()
-	retargetTime := ts.Add(-time.Duration(config.retargetDuration/2) * time.Second)
-	bufferSize := retarget / target * 4
-
-	return &vardiff{
+	retargetTime := ts.Add(-time.Duration(config.RetargetDuration/2) * time.Second)
+	buf, err := NewRingFloat64(config.BufferSize())
+	if err != nil {
+		return nil, err
+	}
+	d := &vardiff{
 		config:       config,
-		timeBuffer:   NewRingFloat64(bufferSize),
+		timeBuffer:   buf,
 		retargetTime: retargetTime,
 		updated:      ts,
 	}
+	return d, nil
 }
 
 // Submit shares, calcuate new difficulty.
-func (v *vardiff) Submit(worker *Worker) {
+func (v *vardiff) Submit(oldDiff float64) float64 {
 	ts := time.Now()
 
 	// log last share work time
 	v.timeBuffer.Append(ts.Sub(v.updated).Seconds())
 	v.updated = ts
 
-	sinceRetarget := int64(ts.Sub(v.retargetTime).Seconds())
+	sinceRetarget := int(ts.Sub(v.retargetTime).Seconds())
 	// no need to retarget
-	if sinceRetarget < v.config.retargetDuration && v.timeBuffer.Size() > 0 {
-		return
+	if sinceRetarget < v.config.RetargetDuration && v.BufferSize() > 0 {
+		return oldDiff
 	}
 
 	v.retargetTime = ts
-	avg := int(v.timeBuffer.Avg())
-	ddiff := float64(v.config.targetDuration) / float64(avg)
+	return v.calculate(oldDiff)
+}
 
-	workerDiff := worker.context.Difficulty
-	if avg > v.config.tMax && workerDiff > v.config.min {
+func (v *vardiff) calculate(oldDiff float64) float64 {
+	avg := int(v.timeBuffer.Avg())
+	ddiff := float64(v.config.TargetDuration) / float64(avg)
+
+	if avg > v.config.TargetMax && oldDiff > v.config.min {
 		// lower diff, more shares
 		if v.config.x2mode {
 			ddiff = 0.5
 		}
-	} else if avg < v.config.tMin {
+	} else if avg < v.config.TargetMin {
 		// increase diff, less shares
 		if v.config.x2mode {
 			ddiff = 2
 		}
 	}
 
-	newDiff := workerDiff * ddiff
+	newDiff := oldDiff * ddiff
 	if newDiff < v.config.min {
 		newDiff = v.config.min
 	}
@@ -138,5 +158,9 @@ func (v *vardiff) Submit(worker *Worker) {
 	}
 
 	v.timeBuffer.Clear()
-	worker.newDifficulty(newDiff)
+	return newDiff
+}
+
+func (v *vardiff) BufferSize() int {
+	return v.timeBuffer.Size()
 }
