@@ -85,12 +85,12 @@ func TestNewVarDiff(t *testing.T) {
 		t.Fatalf("faile to init: %v", err)
 	}
 
-	vardiff.Submit(1.0)
+	vardiff.Submit(time.Now(), 1.0)
 	if vardiff.BufferSize() != 1 {
 		t.Errorf("fail to submit")
 	}
 
-	newdiff := vardiff.Submit(1.0)
+	newdiff := vardiff.Submit(time.Now(), 1.0)
 	if vardiff.BufferSize() != 2 {
 		t.Errorf("fail to submit")
 	}
@@ -100,7 +100,7 @@ func TestNewVarDiff(t *testing.T) {
 	}
 }
 
-func TestVarDiffAdj(t *testing.T) {
+func TestVarDiffNotChange(t *testing.T) {
 	config := stratum.NewVarDiffConfig(1, 512.0, 10, 50, 10)
 
 	vardiff, err := stratum.NewVarDiff(config)
@@ -108,22 +108,124 @@ func TestVarDiffAdj(t *testing.T) {
 		t.Fatalf("fail to init: %v", err)
 	}
 
-	// cheat it to retarget faster with a larger buffer
-	config.RetargetDuration = 1
-
+	// 10 sec per share, equal to target
 	items := make([]int, 21, 21) // weied, need +1?
+	ts := time.Now().Add(-time.Duration(200) * time.Second)
 	for _, _ = range items {
-		vardiff.Submit(8.0)
+		ts = ts.Add(time.Duration(10) * time.Second)
+		vardiff.Submit(ts, 8.0)
 	}
 
 	if vardiff.BufferSize() < 20 {
 		t.Errorf("buffer not full, size: %d", vardiff.BufferSize())
 	}
 
-	time.Sleep(1 * time.Second)
-
-	newdiff := vardiff.Submit(8.0)
-	if newdiff == 8.0 {
-		t.Errorf("retarget failed")
+	newdiff := vardiff.Submit(time.Now(), 8.0)
+	if newdiff != 8.0 {
+		t.Errorf("retarget failed, %.2f", newdiff)
 	}
+}
+
+func TestVarDiffDouble(t *testing.T) {
+	config := stratum.NewVarDiffConfig(1, 512.0, 10, 100, 10)
+
+	vardiff, err := stratum.NewVarDiff(config)
+	if err != nil {
+		t.Fatalf("fail to init: %v", err)
+	}
+
+	// 5 sec per share, double
+	diff := 8.0
+	items := make([]int, 20, 20) // weied, need +1?
+	ts := time.Now()
+	for _, _ = range items {
+		ts = ts.Add(time.Duration(5) * time.Second)
+		diff = vardiff.Submit(ts, diff)
+	}
+
+	if diff != 16.0 {
+		t.Errorf("retarget failed, %.2f", diff)
+	}
+
+	for _, _ = range items {
+		ts = ts.Add(time.Duration(5) * time.Second)
+		diff = vardiff.Submit(ts, diff)
+	}
+
+	if diff != 32.0 {
+		t.Errorf("retarget failed, %.2f", diff)
+	}
+}
+
+func TestVarDiffHalf(t *testing.T) {
+	config := stratum.NewVarDiffConfig(1, 512.0, 10, 100, 10)
+
+	vardiff, err := stratum.NewVarDiff(config)
+	if err != nil {
+		t.Fatalf("fail to init: %v", err)
+	}
+
+	// 20 sec / share, down half
+	diff := 8.0
+	olddiff := diff
+	items := make([]int, 10, 10)
+	ts := time.Now()
+	for _, _ = range items {
+		ts = ts.Add(time.Duration(20) * time.Second)
+		diff = vardiff.Submit(ts, diff)
+		if diff != olddiff && diff == 4.0 {
+			return
+		}
+	}
+
+	t.Errorf("retarget failed, %.2f", diff)
+}
+
+func TestVarDiffMax(t *testing.T) {
+	config := stratum.NewVarDiffConfig(1, 512.0, 10, 100, 10)
+
+	vardiff, err := stratum.NewVarDiff(config)
+	if err != nil {
+		t.Fatalf("fail to init: %v", err)
+	}
+
+	// 20 sec / share, down half
+	diff := 8.0
+	olddiff := diff
+	items := make([]int, 80, 80)
+	ts := time.Now()
+	ts = ts.Add(time.Duration(45) * time.Second)
+	for _, _ = range items {
+		ts = ts.Add(time.Duration(100) * time.Millisecond)
+		diff = vardiff.Submit(ts, diff)
+		if diff != olddiff && diff == 512.0 {
+			return
+		}
+	}
+
+	t.Errorf("retarget failed, %.2f", diff)
+}
+
+func TestVarDiffLessThanOne(t *testing.T) {
+	config := stratum.NewVarDiffConfig(0.001, 0.1, 10, 100, 10)
+
+	vardiff, err := stratum.NewVarDiff(config)
+	if err != nil {
+		t.Fatalf("fail to init: %v", err)
+	}
+
+	// 5 sec / share, double
+	diff := 0.01
+	olddiff := diff
+	items := make([]int, 80, 80)
+	ts := time.Now()
+	for _, _ = range items {
+		ts = ts.Add(time.Duration(5) * time.Second)
+		diff = vardiff.Submit(ts, diff)
+		if diff != olddiff && diff == 0.02 {
+			return
+		}
+	}
+
+	t.Errorf("retarget failed, %.2f", diff)
 }

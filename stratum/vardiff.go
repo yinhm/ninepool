@@ -78,8 +78,8 @@ func NewVarDiffConfig(min, max float64, target, retarget, variance int) *VarDiff
 
 	return &VarDiffConfig{
 		x2mode:           false,
-		min:              0.1,
-		max:              1024.0,
+		min:              min,
+		max:              max,
 		TargetMin:        tMin,
 		TargetMax:        tMax,
 		TargetDuration:   target,
@@ -116,20 +116,20 @@ func NewVarDiff(config *VarDiffConfig) (*vardiff, error) {
 }
 
 // Submit shares, calcuate new difficulty.
-func (v *vardiff) Submit(oldDiff float64) float64 {
-	ts := time.Now()
-
+func (v *vardiff) Submit(shareTime time.Time, oldDiff float64) float64 {
 	// log last share work time
-	v.timeBuffer.Append(ts.Sub(v.updated).Seconds())
-	v.updated = ts
+	v.timeBuffer.Append(shareTime.Sub(v.updated).Seconds())
+	v.updated = shareTime
 
-	sinceRetarget := int(ts.Sub(v.retargetTime).Seconds())
+	sinceRetarget := int(shareTime.Sub(v.retargetTime).Seconds())
 	// no need to retarget
+	// log.Printf("sinceRetarget = %d, v.config.RetargetDuration = %d",
+	//  sinceRetarget, v.config.RetargetDuration)
 	if sinceRetarget < v.config.RetargetDuration && v.BufferSize() > 0 {
 		return oldDiff
 	}
 
-	v.retargetTime = ts
+	v.retargetTime = shareTime
 	return v.calculate(oldDiff)
 }
 
@@ -150,6 +150,7 @@ func (v *vardiff) calculate(oldDiff float64) float64 {
 	}
 
 	newDiff := oldDiff * ddiff
+
 	if newDiff < v.config.min {
 		newDiff = v.config.min
 	}
