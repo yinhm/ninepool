@@ -1,12 +1,5 @@
 package stratum
 
-import (
-	"container/ring"
-	"errors"
-	// "github.com/golang/glog"
-	"time"
-)
-
 type Share struct {
 	username string
 	// jobId    string
