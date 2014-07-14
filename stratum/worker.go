@@ -3,8 +3,8 @@ package stratum
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/yinhm/ninepool/birpc"
-	"log"
 	"sync"
 	"time"
 )
@@ -66,7 +66,7 @@ func (w *Worker) waitSubscribe(timeout time.Duration) {
 		}
 		return
 	case <-time.After(timeout):
-		log.Printf("No subscribe request received from worker in %.2f seconds.", timeout.Seconds())
+		glog.Infof("No subscribe request received from worker in %.2f seconds.", timeout.Seconds())
 		w.Close()
 		return
 	}
@@ -109,7 +109,7 @@ func (w *Worker) newExtraNonce() {
 
 func (w *Worker) newDifficulty(diff float64) {
 	fmtDiff := fmt.Sprintf("%.4f", diff)
-	log.Printf("worker diff set to %s.", fmtDiff)
+	glog.Infof("worker diff set to %s.", fmtDiff)
 }
 
 // Update the shares lists with the given share to compute hashrate

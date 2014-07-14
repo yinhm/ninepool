@@ -7,9 +7,9 @@ import (
 	"github.com/conformal/btcnet"
 	"github.com/conformal/btcutil"
 	"github.com/conformal/btcwire"
+	"github.com/golang/glog"
 	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
-	"log"
 	"math"
 	"math/big"
 	"strconv"
@@ -105,7 +105,7 @@ func (m *Mining) notifyAfterSubscribe(e *birpc.Endpoint) {
 
 	job, err := context.CurrentJob()
 	if err != nil {
-		log.Printf("No job to do, return")
+		glog.Infof("No job to do, return")
 		e.Close()
 		return
 	}
@@ -119,13 +119,13 @@ func (m *Mining) notifyAfterSubscribe(e *birpc.Endpoint) {
 
 // upstream mining.notify -> server
 func (m *Mining) Notify(args *interface{}, reply *interface{}, e *birpc.Endpoint) error {
-	log.Printf("mining.notify\n")
+	glog.Infof("mining.notify\n")
 
 	params := birpc.List((*args).([]interface{}))
 	params[4] = birpc.List(params[4].([]interface{})) // MerkleBranch
 	job, err := NewJob(params)
 	if err != nil {
-		log.Printf("error in build job: %s\n", err.Error())
+		glog.Infof("error in build job: %s\n", err.Error())
 		return err
 	}
 
@@ -143,7 +143,7 @@ func (m *Mining) Set_difficulty(args *interface{}, reply *interface{}, e *birpc.
 
 	params := birpc.List((*args).([]interface{}))
 	ctx.Difficulty = params[0].(float64)
-	log.Printf("mining.set_difficulty to %.3f\n", ctx.Difficulty)
+	glog.Infof("mining.set_difficulty to %.3f\n", ctx.Difficulty)
 	return nil
 }
 
@@ -233,9 +233,9 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 
 	difficulty := context.Difficulty
 	shareDiff, err := shareDifficulty(&headerHash, int64(1))
-	log.Printf("share diff: %.4f/%.8f", difficulty, shareDiff)
+	glog.Infof("share diff: %.4f/%.8f", difficulty, shareDiff)
 	if err != nil || shareDiff/difficulty < 0.99 {
-		log.Printf("[Proxy] share rejected: low difficulty, %s", headerHash.String())
+		glog.Infof("[Proxy] share rejected: low difficulty, %s", headerHash.String())
 		// DEBUG: testing submit low diff share, will remove in production
 		go pool.submit(shareDiff, jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
 		return m.rpcError(ErrorLowDifficultyShare)
@@ -244,7 +244,7 @@ func (m *Mining) Submit(args *interface{}, reply *bool, e *birpc.Endpoint) error
 	go pool.submit(shareDiff, jobId, context.ExtraNonce1, extraNonce2, ntime, nonce, headerHash.String())
 
 	*reply = true
-	log.Printf("[Proxy] share accepted: #%s, hash: %s\n", jobId, headerHash.String())
+	glog.Infof("[Proxy] share accepted: #%s, hash: %s\n", jobId, headerHash.String())
 	return nil
 }
 

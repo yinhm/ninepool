@@ -2,11 +2,11 @@ package stratum
 
 import (
 	"errors"
+	"github.com/golang/glog"
 	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/birpc/jsonmsg"
 	"io"
-	"log"
 	"net"
 )
 
@@ -101,7 +101,7 @@ func (c *StratumClient) Subscribe() (err error) {
 	}
 
 	c.Active = true
-	log.Printf("Client subscribed %s", context.ExtraNonce1)
+	glog.Infof("Client subscribed %s", context.ExtraNonce1)
 
 	return nil
 }

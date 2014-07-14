@@ -2,8 +2,8 @@ package stratum
 
 import (
 	"errors"
+	"github.com/golang/glog"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -92,22 +92,22 @@ func (p *Pool) Serve(server *StratumServer, timeout time.Duration, errch chan er
 		case job := <-ctx.JobCh:
 			p.newJob(job)
 		case err := <-errch:
-			log.Printf("Pool %s lost connection: %s, try reconnect...", p.address, err)
+			glog.Infof("Pool %s lost connection: %s, try reconnect...", p.address, err)
 			err = p.reconnect(errch)
 			if err != nil {
-				log.Printf("reconnect to %s failed, shutdown...", p.address)
+				glog.Infof("reconnect to %s failed, shutdown...", p.address)
 				server.removePool(p)
 				p.Shutdown()
 			}
 		case <-time.After(timeout):
-			log.Printf("Pool %s timeout in %.1f minutes.", p.address, timeout.Minutes())
+			glog.Infof("Pool %s timeout in %.1f minutes.", p.address, timeout.Minutes())
 			server.removePool(p)
 			p.Shutdown()
 			break
 		}
 	}
 
-	log.Printf("Pool %s stop serving.", p.address)
+	glog.Infof("Pool %s stop serving.", p.address)
 }
 
 func (p *Pool) Context() *ClientContext {
@@ -185,7 +185,7 @@ func (p *Pool) reconnect(errch chan error) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Pool %s reconnected.", p.address)
+	glog.Infof("Pool %s reconnected.", p.address)
 	return nil
 }
 
@@ -201,12 +201,12 @@ func (p *Pool) Shutdown() {
 	p.stable = false
 	p.closing = true
 
-	log.Printf("Stopping pool %s...", p.address)
+	glog.Infof("Stopping pool %s...", p.address)
 
 	p.upstream.Close()
 	p.upstream = nil
 
-	log.Printf("Pool %s stopped.", p.address)
+	glog.Infof("Pool %s stopped.", p.address)
 
 	// TODO: relocate miners
 }
@@ -220,7 +220,7 @@ func (p *Pool) addWorker(worker *Worker) {
 func (p *Pool) removeWorker(worker *Worker) {
 	_, ok := p.workers[worker]
 	if !ok {
-		log.Printf("Work not found in pool %s.", p.address)
+		glog.Infof("Work not found in pool %s.", p.address)
 		return
 	}
 	delete(p.workers, worker)
@@ -228,7 +228,7 @@ func (p *Pool) removeWorker(worker *Worker) {
 
 func (p *Pool) closeWorkers() {
 	// disconnect all workers
-	log.Printf("Closing %d workers.", len(p.workers))
+	glog.Infof("Closing %d workers.", len(p.workers))
 	for worker, _ := range p.workers {
 		worker.Close()
 	}
@@ -269,25 +269,25 @@ func (p *Pool) broadcast(job *Job) {
 	p.lock.RLock()
 	count := len(p.workers)
 	p.lock.RUnlock()
-	log.Printf("Broadcast job from %s to %d workers.", p.address, count)
+	glog.Infof("Broadcast job from %s to %d workers.", p.address, count)
 }
 
 // submit job to upstream
 func (p *Pool) submit(diff float64, jobId, extraNonce1, extraNonce2, ntime, nonce, hash string) {
 	ctx := p.Context()
 	if ctx == nil {
-		log.Printf("share can not submit, lost connection to pool\n")
+		glog.Infof("share can not submit, lost connection to pool\n")
 	}
 	if diff/ctx.Difficulty < 0.99 {
-		log.Printf("[Pool] diff lower than the pool, no submit.")
+		glog.Infof("[Pool] diff lower than the pool, no submit.")
 		return
 	}
 	nonce2 := p.nonceCounter.Nonce1Suffix(extraNonce1) + extraNonce2
 	err := p.upstream.Submit(ctx.Username, jobId, nonce2, ntime, nonce)
 	// TODO: log upstream acceptence
 	if err != nil {
-		log.Printf("[Pool] share rejected %s, %s.", hash, err.Error())
+		glog.Infof("[Pool] share rejected %s, %s.", hash, err.Error())
 		return
 	}
-	log.Printf("[Pool] share accepted: %s\n", hash)
+	glog.Infof("[Pool] share accepted: %s\n", hash)
 }

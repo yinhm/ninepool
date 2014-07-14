@@ -1,10 +1,9 @@
 package main
 
 import (
+	"github.com/golang/glog"
 	"github.com/yinhm/ninepool/stratum"
-	"log"
 	"net"
-	"os"
 )
 
 const (
@@ -15,23 +14,22 @@ const (
 func main() {
 	options, err := stratum.ParseCommandLine()
 	if err != nil {
-		log.Printf("Failed to parse command line: %s\n", err)
+		glog.Infof("Failed to parse command line: %s\n", err)
 		return
 	}
 
 	ln, err := net.Listen(network, addr)
 	if err != nil {
-		panic(err)
+		glog.Fatalf("Can not bind : %s\n", err)
 	}
 	defer ln.Close()
 
-	log.Printf("Listen on %s", addr)
+	glog.Infof("Listen on %s", addr)
 
 	service := stratum.NewStratumServer(options)
 	if err := service.Start(ln); err != nil {
-		log.Printf("Service exited with error: %s\n", err)
-		os.Exit(255)
+		glog.Fatalf("Service exited with error: %s\n", err)
 	} else {
-		log.Println("Service exited.")
+		glog.Infof("Service exited.")
 	}
 }

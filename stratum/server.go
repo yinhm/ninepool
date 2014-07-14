@@ -2,11 +2,11 @@ package stratum
 
 import (
 	"errors"
+	"github.com/golang/glog"
 	"github.com/tv42/topic"
 	"github.com/yinhm/ninepool/birpc"
 	"github.com/yinhm/ninepool/birpc/jsonmsg"
 	"io"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -59,11 +59,11 @@ func (s *StratumServer) Start(l net.Listener) error {
 	// Block until a signal is received or we got an error
 	select {
 	case signal := <-s.sigCh:
-		log.Printf("Got signal %s, waiting for shutdown...", signal)
+		glog.Infof("Got signal %s, waiting for shutdown...", signal)
 		s.Shutdown()
 		return nil
 	case err := <-s.errCh:
-		log.Printf("Server shutdown with error: %s", err)
+		glog.Infof("Server shutdown with error: %s", err)
 		s.Shutdown()
 		return err
 	}
@@ -78,7 +78,7 @@ func (s *StratumServer) serve(l net.Listener) {
 
 		conn, err := l.Accept()
 		if err != nil {
-			log.Printf("Error on accept connect.")
+			glog.Infof("Error on accept connect.")
 			continue
 		}
 
@@ -91,18 +91,18 @@ func (s *StratumServer) ServeConn(conn net.Conn) {
 
 	endpoint := s.newEndpoint(conn)
 
-	log.Printf("Client connected: %v\n", conn.RemoteAddr())
+	glog.Infof("Client connected: %v\n", conn.RemoteAddr())
 	err := endpoint.Serve()
 	if err != nil {
 		if err == io.EOF {
-			log.Printf("Client disconnect: %v", conn.RemoteAddr())
+			glog.Infof("Client disconnect: %v", conn.RemoteAddr())
 		} else {
-			log.Printf("Error on %v", err)
+			glog.Infof("Error on %v", err)
 		}
 	}
 
 	s.lock.Lock()
-	log.Printf("Deleting worker %v", conn.RemoteAddr())
+	glog.Infof("Deleting worker %v", conn.RemoteAddr())
 	worker, _ := s.workers[endpoint]
 	worker.Close()
 	delete(s.workers, endpoint)
@@ -138,12 +138,12 @@ func (s *StratumServer) activeOrder(order *Order) {
 	}
 
 	// connect to upstream pool
-	log.Printf("connecting to #%d, %s ...\n", order.Id, order.Address())
+	glog.Infof("connecting to #%d, %s ...\n", order.Id, order.Address())
 
 	errch := make(chan error, 1)
 	pool, err := NewPool(s, order, errch)
 	if err != nil {
-		log.Printf("Failed to connecting the pool %s: %s\n", order.Address(), err.Error())
+		glog.Infof("[Pool #%d]: %s\n", order.Id, err.Error())
 		order.markDead()
 		return
 	}
@@ -189,7 +189,7 @@ func (s *StratumServer) removePool(p *Pool) {
 }
 
 func (s *StratumServer) stopWorkers() {
-	log.Printf("Stopping %d workers.", len(s.workers))
+	glog.Infof("Stopping %d workers.", len(s.workers))
 	for _, worker := range s.workers {
 		worker.Close() // close codec
 	}

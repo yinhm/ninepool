@@ -123,7 +123,7 @@ func (v *vardiff) Submit(shareTime time.Time, oldDiff float64) float64 {
 
 	sinceRetarget := int(shareTime.Sub(v.retargetTime).Seconds())
 	// no need to retarget
-	// log.Printf("sinceRetarget = %d, v.config.RetargetDuration = %d",
+	// glog.Infof("sinceRetarget = %d, v.config.RetargetDuration = %d",
 	//  sinceRetarget, v.config.RetargetDuration)
 	if sinceRetarget < v.config.RetargetDuration && v.BufferSize() > 0 {
 		return oldDiff

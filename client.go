@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"github.com/golang/glog"
 	"github.com/yinhm/ninepool/stratum"
 	"net"
 	"time"
@@ -22,22 +22,22 @@ func main() {
 
 	errch := make(chan error)
 	client := stratum.NewClient(conn, errch)
-	log.Printf("client started...\n")
+	glog.Infof("client started...\n")
 
 	go func() {
 		if err := <-errch; err != nil {
-			log.Fatalf("Error on client.Serve: %s", err.Error())
+			glog.Fatalf("Error on client.Serve: %s", err.Error())
 		}
 	}()
 
 	err = client.Subscribe()
 	if err != nil {
-		log.Fatalf(err.Error())
+		glog.Fatalf(err.Error())
 	}
 
 	err = client.Authorize("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "x")
 	if err != nil {
-		log.Fatalf(err.Error())
+		glog.Fatalf(err.Error())
 	}
 
 	time.Sleep(200 * time.Millisecond)
@@ -45,7 +45,7 @@ func main() {
 	err = client.Submit("1PJ1DVi5n6T4NisfnVbYmL17a4WNfaFsda", "bf",
 		"00000001", "504e86ed", "b2957c02")
 	if err != nil {
-		log.Fatalf(err.Error())
+		glog.Fatalf(err.Error())
 	}
 
 	time.Sleep(500 * time.Millisecond)
