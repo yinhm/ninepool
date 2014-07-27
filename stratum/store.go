@@ -24,8 +24,8 @@ func NewStore() *Store {
 	return &Store{db}
 }
 
-func (db *Store) put(key, value []byte) error {
+func (db *Store) Put(key, value []byte) error {
 	o := rocksdb.NewDefaultWriteOptions()
-	return db.Put(o, key, value)
+	return db.DB.Put(o, key, value)
 }
 
