@@ -9,7 +9,7 @@ import (
 	"github.com/conformal/btcwire"
 	"github.com/golang/glog"
 	"github.com/tv42/topic"
-	"github.com/yinhm/ninepool/birpc"
+	"github.com/yinhm/birpc"
 	"math"
 	"math/big"
 	"strconv"

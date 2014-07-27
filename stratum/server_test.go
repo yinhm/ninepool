@@ -1,7 +1,7 @@
 package stratum_test
 
 import (
-	"github.com/yinhm/ninepool/birpc"
+	"github.com/yinhm/birpc"
 	"github.com/yinhm/ninepool/stratum"
 	"io"
 	"net"

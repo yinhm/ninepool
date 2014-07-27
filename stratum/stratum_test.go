@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"github.com/conformal/btcwire"
-	"github.com/yinhm/ninepool/birpc"
+	"github.com/yinhm/birpc"
 	"github.com/yinhm/ninepool/stratum"
 	"testing"
 )
