@@ -50,3 +50,18 @@ x11
  - 自动加价系统
  - FEE0.2%  挂单设置0.4%自动VIP
  - 全池算力10G VIP算力3G不能再获得VIP资格
+
+
+
+=== Nicehash ===
+
+Not true.
+1. Each provided job is valid for at least 1.5 seconds
+2. Each job has 0.8 seconds stale window
+3. We reward miners with fake accepted shares if jobs are being switched fast
+4. If share is rejected by NiceHash, it is not sent to the pool    
+
+
+>> How exactly does the order system work? For instance, if I configure my miner with p=0.70 but there are orders with 0.8x, will I always mine the highest order automatically?
+
+No, all miners are paid average price, which can be seen on front page under "Currently paying".
