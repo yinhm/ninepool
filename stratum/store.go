@@ -5,27 +5,99 @@ package stratum
 
 import (
 	"github.com/golang/glog"
-	"os"
 	rocksdb "github.com/tecbot/gorocksdb"
 )
 
 type Store struct {
-	*rocksdb.DB
+	dbpath  string
+	rdb     *rocksdb.DB
+	options *rocksdb.Options
+	ro      *rocksdb.ReadOptions
+	wo      *rocksdb.WriteOptions
 }
 
-func NewStore() *Store {
-	dbName := os.TempDir() + "/ninepool"
-	options := rocksdb.NewDefaultOptions()
-	options.SetCreateIfMissing(true)
-	db, err := rocksdb.OpenDb(options, dbName)
+func NewStore(dbpath string) *Store {
+	db := new(Store)
+	db.dbpath = dbpath
+	db.initOptions()
+	db.initReadOptions()
+	db.initWriteOptions()
+
+	rdb, err := rocksdb.OpenDb(db.options, db.dbpath)
 	if err != nil {
 		glog.Fatalf("Can not open db: %s", err)
 	}
-	return &Store{db}
+	db.rdb = rdb
+	return db
+}
+
+func (db *Store) initOptions() {
+	// transform := NewFixedPrefixTransform()
+
+	opts := rocksdb.NewDefaultOptions()
+  // opts.SetBlockCache(rocksdb.NewLRUCache(128<<20)) // 128MB
+	// // Default bits_per_key is 10, which yields ~1% false positive rate.
+	// opts.SetFilterPolicy(rocksdb.NewBloomFilter(10))
+	// opts.SetPrefixExtractor(transform)
+	// opts.SetWriteBufferSize(16<<20) // 8MB
+	// opts.SetTargetFileSizeBase(16<<20)
+	opts.SetCreateIfMissing(true)
+	db.options = opts
+}
+
+func (db *Store) initReadOptions() {
+	db.ro = rocksdb.NewDefaultReadOptions()
+}
+
+func (db *Store) initWriteOptions() {
+	db.wo = rocksdb.NewDefaultWriteOptions()
+}
+
+func (db *Store) Close() {
+	db.options.Destroy()
+	db.ro.Destroy()
+	db.wo.Destroy()
+  db.rdb.Close()
+  db.rdb = nil
+}
+
+func (db *Store) Get(key []byte) (*rocksdb.Slice, error) {
+	return db.rdb.Get(db.ro, key)
 }
 
 func (db *Store) Put(key, value []byte) error {
-	o := rocksdb.NewDefaultWriteOptions()
-	return db.DB.Put(o, key, value)
+	return db.rdb.Put(db.wo, key, value)
 }
 
+func (db *Store) Delete(key []byte) error {
+	return db.rdb.Delete(db.wo, key)
+}
+
+// https://github.com/facebook/rocksdb/wiki/Prefix-Seek-API-Changes
+type FixedPrefixTransform struct {
+	initiated bool
+	size      int
+}
+
+func NewFixedPrefixTransform() *FixedPrefixTransform {
+	return &FixedPrefixTransform{
+		initiated: true,
+		size:      6,
+	}
+}
+
+func (t *FixedPrefixTransform) Transform(src []byte) []byte {
+	return src[0:t.size]
+}
+
+func (t *FixedPrefixTransform) InDomain(src []byte) bool {
+	return len(src) >= t.size
+}
+
+func (t *FixedPrefixTransform) InRange(src []byte) bool {
+	return len(src) == t.size
+}
+
+func (t *FixedPrefixTransform) Name() string {
+	return "FixedPrefixTransform"
+}
