@@ -104,3 +104,23 @@ func (t *FixedPrefixTransform) InRange(src []byte) bool {
 func (t *FixedPrefixTransform) Name() string {
 	return "FixedPrefixTransform"
 }
+
+
+type Prefix struct {
+	app      uint8  // instance app id, max 256
+	table    uint16 // predefined table id
+	unixtime int64  // seconds
+}
+
+func NewSharePrefix() *Prefix {
+	return &Prefix {
+		app: uint8(1),
+		table: uint16(1),
+	}
+}
+
+func ParsePrefix() *Prefix {
+	// TODO
+	return nil
+}
+
