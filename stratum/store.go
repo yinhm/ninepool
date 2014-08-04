@@ -37,7 +37,7 @@ func DestroyStore(dbpath string) error {
 }
 
 func NewStoreOptions() *rocksdb.Options {
-	transform := NewFixedPrefixTransform()
+	transform := NewFixedPrefixTransform(68) // btc address
 
 	opts := rocksdb.NewDefaultOptions()
   opts.SetBlockCache(rocksdb.NewLRUCache(128<<20)) // 128MB
@@ -80,14 +80,12 @@ func (db *Store) Delete(key []byte) error {
 
 // https://github.com/facebook/rocksdb/wiki/Prefix-Seek-API-Changes
 type FixedPrefixTransform struct {
-	initiated bool
 	size      int
 }
 
-func NewFixedPrefixTransform() *FixedPrefixTransform {
+func NewFixedPrefixTransform(size int) *FixedPrefixTransform {
 	return &FixedPrefixTransform{
-		initiated: true,
-		size:      6,
+		size:      size,
 	}
 }
 
