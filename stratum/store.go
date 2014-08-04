@@ -19,7 +19,7 @@ type Store struct {
 func NewStore(dbpath string) *Store {
 	db := new(Store)
 	db.dbpath = dbpath
-	db.initOptions()
+	db.options = NewStoreOptions()
 	db.initReadOptions()
 	db.initWriteOptions()
 
@@ -31,18 +31,23 @@ func NewStore(dbpath string) *Store {
 	return db
 }
 
-func (db *Store) initOptions() {
-	// transform := NewFixedPrefixTransform()
+func DestroyStore(dbpath string) error {
+	options := NewStoreOptions()
+	return rocksdb.DestroyDb(dbpath, options)
+}
+
+func NewStoreOptions() *rocksdb.Options {
+	transform := NewFixedPrefixTransform()
 
 	opts := rocksdb.NewDefaultOptions()
-  // opts.SetBlockCache(rocksdb.NewLRUCache(128<<20)) // 128MB
-	// // Default bits_per_key is 10, which yields ~1% false positive rate.
-	// opts.SetFilterPolicy(rocksdb.NewBloomFilter(10))
-	// opts.SetPrefixExtractor(transform)
-	// opts.SetWriteBufferSize(16<<20) // 8MB
-	// opts.SetTargetFileSizeBase(16<<20)
+  opts.SetBlockCache(rocksdb.NewLRUCache(128<<20)) // 128MB
+	// Default bits_per_key is 10, which yields ~1% false positive rate.
+	opts.SetFilterPolicy(rocksdb.NewBloomFilter(10))
+	opts.SetPrefixExtractor(transform)
+	opts.SetWriteBufferSize(16<<20) // 8MB
+	opts.SetTargetFileSizeBase(16<<20)
 	opts.SetCreateIfMissing(true)
-	db.options = opts
+	return opts
 }
 
 func (db *Store) initReadOptions() {
