@@ -2,7 +2,7 @@ package stratum
 
 type Share struct {
 	username string
-	// jobId    string
+	jobId    string
 	pool     string //hash?
 	header string
 	diff float64

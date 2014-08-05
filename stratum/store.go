@@ -37,7 +37,7 @@ func DestroyStore(dbpath string) error {
 }
 
 func NewStoreOptions() *rocksdb.Options {
-	transform := NewFixedPrefixTransform(68) // btc address
+	transform := NewFixedPrefixTransform(11) // btc address
 
 	opts := rocksdb.NewDefaultOptions()
   opts.SetBlockCache(rocksdb.NewLRUCache(128<<20)) // 128MB
@@ -106,16 +106,19 @@ func (t *FixedPrefixTransform) Name() string {
 }
 
 
+// 88 bites prefix
 type Prefix struct {
-	app      uint8  // instance app id, max 256
-	table    uint16 // predefined table id
+  // Instance app id(max 255), <16 is reserved.
+	app      uint8
+	// Predefined table id, <16 is reserved.
+	table    uint16
 	unixtime int64  // seconds
 }
 
 func NewSharePrefix() *Prefix {
 	return &Prefix {
-		app: uint8(1),
-		table: uint16(1),
+		app: uint8(16),
+		table: uint16(16),
 	}
 }
 
