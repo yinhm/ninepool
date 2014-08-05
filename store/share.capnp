@@ -14,6 +14,6 @@ struct Share {
     accepted  @6: Bool;
     extraNonce1 @7: Text;
     extraNonce2 @8: Text;
-    ntime  @9: Int64;
+    ntime  @9: Text;
     nonce  @10: Text;
 }

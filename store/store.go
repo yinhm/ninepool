@@ -6,6 +6,7 @@ package store
 import (
 	"github.com/golang/glog"
 	rocksdb "github.com/tecbot/gorocksdb"
+	"unsafe"
 )
 
 type Store struct {
@@ -37,15 +38,16 @@ func DestroyStore(dbpath string) error {
 }
 
 func NewStoreOptions() *rocksdb.Options {
-	transform := NewFixedPrefixTransform(11) // btc address
+	var prefix Prefix
+	transform := NewFixedPrefixTransform(int(unsafe.Sizeof(prefix)))
 
 	opts := rocksdb.NewDefaultOptions()
-  opts.SetBlockCache(rocksdb.NewLRUCache(128<<20)) // 128MB
+	opts.SetBlockCache(rocksdb.NewLRUCache(128 << 20)) // 128MB
 	// Default bits_per_key is 10, which yields ~1% false positive rate.
 	opts.SetFilterPolicy(rocksdb.NewBloomFilter(10))
 	opts.SetPrefixExtractor(transform)
-	opts.SetWriteBufferSize(16<<20) // 8MB
-	opts.SetTargetFileSizeBase(16<<20)
+	opts.SetWriteBufferSize(16 << 20) // 8MB
+	opts.SetTargetFileSizeBase(16 << 20)
 	opts.SetCreateIfMissing(true)
 	return opts
 }
@@ -62,8 +64,8 @@ func (db *Store) Close() {
 	db.options.Destroy()
 	db.ro.Destroy()
 	db.wo.Destroy()
-  db.rdb.Close()
-  db.rdb = nil
+	db.rdb.Close()
+	db.rdb = nil
 }
 
 func (db *Store) Get(key []byte) (*rocksdb.Slice, error) {
@@ -80,12 +82,12 @@ func (db *Store) Delete(key []byte) error {
 
 // https://github.com/facebook/rocksdb/wiki/Prefix-Seek-API-Changes
 type FixedPrefixTransform struct {
-	size      int
+	size int
 }
 
 func NewFixedPrefixTransform(size int) *FixedPrefixTransform {
 	return &FixedPrefixTransform{
-		size:      size,
+		size: size,
 	}
 }
 
@@ -105,19 +107,18 @@ func (t *FixedPrefixTransform) Name() string {
 	return "FixedPrefixTransform"
 }
 
-
 // 88 bites prefix
 type Prefix struct {
-  // Instance app id(max 255), <16 is reserved.
-	app      uint8
+	// Instance app id(max 255), <16 is reserved.
+	app uint8
 	// Predefined table id, <16 is reserved.
 	table    uint16
-	unixtime int64  // seconds
+	unixtime int64 // seconds
 }
 
 func NewSharePrefix() *Prefix {
-	return &Prefix {
-		app: uint8(16),
+	return &Prefix{
+		app:   uint8(16),
 		table: uint16(16),
 	}
 }
@@ -126,4 +127,3 @@ func ParsePrefix() *Prefix {
 	// TODO
 	return nil
 }
-
