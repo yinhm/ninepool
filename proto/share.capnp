@@ -2,7 +2,7 @@
 
 using Go = import "go.capnp";
 
-$Go.package("store");
+$Go.package("proto");
 
 struct Share {
     username @0: Text;

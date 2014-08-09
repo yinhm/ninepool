@@ -1,4 +1,4 @@
-package store
+package proto
 
 // AUTO GENERATED - DO NOT EDIT
 
