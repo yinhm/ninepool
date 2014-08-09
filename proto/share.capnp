@@ -4,6 +4,12 @@ using Go = import "go.capnp";
 
 $Go.package("proto");
 
+struct Prefix {
+    app @0: UInt8;
+    table @1: UInt16;
+    unixtime @2: Int64;
+}
+
 struct Share {
     username @0: Text;
     jobId @1: Text;

@@ -4,9 +4,14 @@
 package store
 
 import (
+	"bytes"
+	"encoding/hex"
+	capn "github.com/glycerine/go-capnproto"
 	"github.com/golang/glog"
 	rocksdb "github.com/tecbot/gorocksdb"
+	"github.com/yinhm/ninepool/proto"
 	"unsafe"
+	"time"
 )
 
 type Store struct {
@@ -107,23 +112,83 @@ func (t *FixedPrefixTransform) Name() string {
 	return "FixedPrefixTransform"
 }
 
-// 88 bites prefix
+// 88 bits prefix
 type Prefix struct {
-	// Instance app id(max 255), <16 is reserved.
-	app uint8
-	// Predefined table id, <16 is reserved.
-	table    uint16
-	unixtime int64 // seconds
+	// proto.Prefix are defined as following:
+  // - app: app id(max 255), <16 is reserved.
+  // - symbol: Predefined table id, <16 is reserved.
+  // - unixtime: the unixtime for the key
+  // +----------+----------+----------+
+  // |  8bits   |  16bits  |  64bits  |
+  // +----------+----------+----------+
+  // |   app    |  table   | unixtime |
+  // +----------+----------+----------+
+	proto.Prefix
 }
 
-func NewSharePrefix() *Prefix {
-	return &Prefix{
-		app:   uint8(16),
-		table: uint16(16),
-	}
+func NewPrefix(app uint8, table uint16) *Prefix {
+	seg := capn.NewBuffer(nil)
+	pp := proto.NewRootPrefix(seg)
+	return &Prefix{pp}
 }
 
 func ParsePrefix() *Prefix {
 	// TODO
 	return nil
+}
+
+func (p *Prefix) Bytes() []byte {
+	buf := bytes.Buffer{}
+	p.Segment.WriteTo(&buf)
+	return buf.Bytes()
+}
+
+type Share struct {
+	db     *Store
+	prefix *Prefix
+}
+
+func NewShare(store *Store) *Share {
+	prefix := NewPrefix(uint8(16), uint16(16))
+	
+	return &Share {
+		db:     store,
+		prefix: prefix,
+	}
+}
+
+func (s Share) Put(pshare proto.Share) ([]byte, error) {
+	s.prefix.SetUnixtime(time.Now().Unix())
+	key := s.prefix.Bytes()
+	buf := bytes.Buffer{}
+	pshare.Segment.WriteTo(&buf)
+	if err := s.db.Put(key, buf.Bytes()); err != nil {
+		return key, err
+	}
+	return key, nil
+}
+
+func (s Share) Get(key []byte) (proto.Share, error) {
+	var ps proto.Share
+
+	value, err := s.db.Get(key)
+	if err != nil {
+		return ps, err
+	}
+	defer value.Free()
+	
+	buf, _, err := capn.ReadFromMemoryZeroCopy(value.Data())
+	if err != nil {
+		return ps, err
+	}
+
+	ps = proto.ReadRootShare(buf)
+	//log.Printf("%s", s.String(ps))
+	return ps, nil
+}
+
+func (s Share) String(ps proto.Share) string {
+	buf := bytes.Buffer{}
+	ps.Segment.WriteTo(&buf)
+	return hex.EncodeToString(buf.Bytes())
 }
