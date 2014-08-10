@@ -5,11 +5,14 @@ package store
 
 import (
 	"bytes"
+	"encoding/binary"
+	"math/rand"
 	"encoding/hex"
 	capn "github.com/glycerine/go-capnproto"
 	"github.com/golang/glog"
 	rocksdb "github.com/tecbot/gorocksdb"
 	"github.com/yinhm/ninepool/proto"
+	"io"
 	"unsafe"
 	"time"
 )
@@ -150,12 +153,46 @@ func (p *Prefix) Bytes() []byte {
 	return buf.Bytes()
 }
 
-func (p *Prefix) Key() string {
-	return string(p.Bytes())
+func (p *Prefix) WriteTo(w io.Writer) (int64, error) {
+	return p.Segment.WriteTo(w)
 }
 
 func (p *Prefix) Time() time.Time {
 	return time.Unix(0, p.Unixnano())
+}
+
+// prefix + rand 32bits form a key.
+type Key struct {
+	prefix Prefix
+	rand   uint32
+}
+
+func NewKey(prefix Prefix, rand uint32) *Key {
+	return &Key {
+		prefix: prefix,
+		rand:   rand,
+	}
+}
+
+func NewRandKey(prefix Prefix) *Key {
+	prefix.SetUnixnano(time.Now().UnixNano())
+	return NewKey(prefix, rand.Uint32())
+}
+
+func (k *Key) Bytes() ([]byte, error) {
+	buf := bytes.Buffer{}
+	k.prefix.WriteTo(&buf)
+	err := binary.Write(&buf, binary.LittleEndian, k.rand)
+	return buf.Bytes(), err
+}
+
+func (k *Key) String() string {
+	bytes, _ := k.Bytes()
+	return string(bytes)
+}
+
+func (k *Key) Time() time.Time {
+	return time.Unix(0, k.prefix.Unixnano())
 }
 
 type Share struct {
@@ -172,25 +209,30 @@ func NewShare(store *Store) *Share {
 	}
 }
 
-func (s Share) Put(pshare proto.Share) ([]byte, error) {
-	now := time.Now()
-
-	s.prefix.SetUnixnano(now.UnixNano())
-	pshare.SetCreated(now.Unix())
-
-	key := s.prefix.Bytes()
+func (s Share) Put(pshare proto.Share) (*Key, error) {
+	pshare.SetCreated(time.Now().Unix())
+	key := NewRandKey(*s.prefix)
 	buf := bytes.Buffer{}
 	pshare.Segment.WriteTo(&buf)
-	if err := s.db.Put(key, buf.Bytes()); err != nil {
+
+	kb, err := key.Bytes()
+	if err != nil {
 		return key, err
 	}
-	return key, nil
+
+	err = s.db.Put(kb, buf.Bytes())
+	return key, err
 }
 
-func (s Share) Get(key []byte) (proto.Share, error) {
+func (s Share) Get(key *Key) (proto.Share, error) {
 	var ps proto.Share
 
-	value, err := s.db.Get(key)
+	bytes, err := key.Bytes()
+	if err != nil {
+		return ps, err
+	}
+
+	value, err := s.db.Get(bytes)
 	if err != nil {
 		return ps, err
 	}
