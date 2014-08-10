@@ -22,4 +22,5 @@ struct Share {
     extraNonce2 @8: Text;
     ntime  @9: Text;
     nonce  @10: Text;
+    created  @11: Int64;
 }

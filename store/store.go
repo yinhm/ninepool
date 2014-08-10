@@ -150,6 +150,14 @@ func (p *Prefix) Bytes() []byte {
 	return buf.Bytes()
 }
 
+func (p *Prefix) Key() string {
+	return string(p.Bytes())
+}
+
+func (p *Prefix) Time() time.Time {
+	return time.Unix(0, p.Unixnano())
+}
+
 type Share struct {
 	db     *Store
 	prefix *Prefix
@@ -165,7 +173,11 @@ func NewShare(store *Store) *Share {
 }
 
 func (s Share) Put(pshare proto.Share) ([]byte, error) {
-	s.prefix.SetUnixnano(time.Now().UnixNano())
+	now := time.Now()
+
+	s.prefix.SetUnixnano(now.UnixNano())
+	pshare.SetCreated(now.Unix())
+
 	key := s.prefix.Bytes()
 	buf := bytes.Buffer{}
 	pshare.Segment.WriteTo(&buf)
