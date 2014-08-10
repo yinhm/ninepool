@@ -59,12 +59,20 @@ func TestShare(t *testing.T) {
 
 		Convey("When put/get, it should be the same", func() {
 			share := store.NewShare(db)
-			key, err := share.Put(pshare)
+			key1, err := share.Put(pshare)
 			So(err, ShouldBeNil)
 
-			ps2, err := share.Get(key)
+			ps2, err := share.Get(key1)
 			So(err, ShouldBeNil)
 			So(ps2.Ntime(), ShouldEqual, "53b98c13")
+
+			Convey("When put twice, it should save to different key", func() {
+				key2, err := share.Put(pshare)
+				So(err, ShouldBeNil)
+
+				So(key1, ShouldNotEqual, key2)
+				So(key1.Prefix, ShouldNotEqual, key2.Prefix)
+			})
 		})
 	})
 }

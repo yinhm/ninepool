@@ -163,13 +163,13 @@ func (p *Prefix) Time() time.Time {
 
 // prefix + rand 32bits form a key.
 type Key struct {
-	prefix Prefix
+	Prefix
 	rand   uint32
 }
 
 func NewKey(prefix Prefix, rand uint32) *Key {
 	return &Key {
-		prefix: prefix,
+		Prefix: prefix,
 		rand:   rand,
 	}
 }
@@ -181,7 +181,7 @@ func NewRandKey(prefix Prefix) *Key {
 
 func (k *Key) Bytes() ([]byte, error) {
 	buf := bytes.Buffer{}
-	k.prefix.WriteTo(&buf)
+	k.WriteTo(&buf)
 	err := binary.Write(&buf, binary.LittleEndian, k.rand)
 	return buf.Bytes(), err
 }
@@ -192,7 +192,7 @@ func (k *Key) String() string {
 }
 
 func (k *Key) Time() time.Time {
-	return time.Unix(0, k.prefix.Unixnano())
+	return time.Unix(0, k.Unixnano())
 }
 
 type Share struct {
