@@ -17,8 +17,8 @@ func (s Prefix) App() uint8              { return C.Struct(s).Get8(0) }
 func (s Prefix) SetApp(v uint8)          { C.Struct(s).Set8(0, v) }
 func (s Prefix) Table() uint16           { return C.Struct(s).Get16(2) }
 func (s Prefix) SetTable(v uint16)       { C.Struct(s).Set16(2, v) }
-func (s Prefix) Unixtime() int64         { return int64(C.Struct(s).Get64(8)) }
-func (s Prefix) SetUnixtime(v int64)     { C.Struct(s).Set64(8, uint64(v)) }
+func (s Prefix) Unixnano() int64         { return int64(C.Struct(s).Get64(8)) }
+func (s Prefix) SetUnixnano(v int64)     { C.Struct(s).Set64(8, uint64(v)) }
 
 // capn.JSON_enabled == false so we stub MarshallJSON().
 func (s *Prefix) MarshalJSON() (bs []byte, err error) {

@@ -31,6 +31,7 @@ func NewStore(dbpath string) *Store {
 
 	rdb, err := rocksdb.OpenDb(db.options, db.dbpath)
 	if err != nil {
+		db.destroyOptions()
 		glog.Fatalf("Can not open db: %s", err)
 	}
 	db.rdb = rdb
@@ -65,12 +66,18 @@ func (db *Store) initWriteOptions() {
 	db.wo = rocksdb.NewDefaultWriteOptions()
 }
 
+// FIXME: Close in testing cause runtime error
 func (db *Store) Close() {
+	db.rdb.Close()
+}
+
+func (db *Store) destroyOptions() {
 	db.options.Destroy()
 	db.ro.Destroy()
 	db.wo.Destroy()
-	db.rdb.Close()
-	db.rdb = nil
+	db.options = nil
+	db.ro = nil
+	db.wo = nil
 }
 
 func (db *Store) Get(key []byte) (*rocksdb.Slice, error) {
@@ -117,11 +124,11 @@ type Prefix struct {
 	// proto.Prefix are defined as following:
   // - app: app id(max 255), <16 is reserved.
   // - symbol: Predefined table id, <16 is reserved.
-  // - unixtime: the unixtime for the key
+  // - unixnano: the unixnano for the key
   // +----------+----------+----------+
   // |  8bits   |  16bits  |  64bits  |
   // +----------+----------+----------+
-  // |   app    |  table   | unixtime |
+  // |   app    |  table   | unixnano |
   // +----------+----------+----------+
 	proto.Prefix
 }
@@ -158,7 +165,7 @@ func NewShare(store *Store) *Share {
 }
 
 func (s Share) Put(pshare proto.Share) ([]byte, error) {
-	s.prefix.SetUnixtime(time.Now().Unix())
+	s.prefix.SetUnixnano(time.Now().UnixNano())
 	key := s.prefix.Bytes()
 	buf := bytes.Buffer{}
 	pshare.Segment.WriteTo(&buf)
