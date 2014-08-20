@@ -6,15 +6,15 @@ package store
 import (
 	"bytes"
 	"encoding/binary"
-	"math/rand"
 	"encoding/hex"
 	capn "github.com/glycerine/go-capnproto"
 	"github.com/golang/glog"
 	rocksdb "github.com/tecbot/gorocksdb"
 	"github.com/yinhm/ninepool/proto"
 	"io"
-	"unsafe"
+	"math/rand"
 	"time"
+	"unsafe"
 )
 
 type Store struct {
@@ -125,14 +125,14 @@ func (t *FixedPrefixTransform) Name() string {
 // 88 bits prefix
 type Prefix struct {
 	// proto.Prefix are defined as following:
-  // - app: app id(max 255), <16 is reserved.
-  // - symbol: Predefined table id, <16 is reserved.
-  // - unixnano: the unixnano for the key
-  // +----------+----------+----------+
-  // |  8bits   |  16bits  |  64bits  |
-  // +----------+----------+----------+
-  // |   app    |  table   | unixnano |
-  // +----------+----------+----------+
+	// - app: app id(max 255), <16 is reserved.
+	// - symbol: Predefined table id, <16 is reserved.
+	// - unixnano: the unixnano for the key
+	// +----------+----------+----------+
+	// |  8bits   |  16bits  |  64bits  |
+	// +----------+----------+----------+
+	// |   app    |  table   | unixnano |
+	// +----------+----------+----------+
 	proto.Prefix
 }
 
@@ -164,11 +164,11 @@ func (p *Prefix) Time() time.Time {
 // prefix + rand 32bits form a key.
 type Key struct {
 	Prefix
-	rand   uint32
+	rand uint32
 }
 
 func NewKey(prefix Prefix, rand uint32) *Key {
-	return &Key {
+	return &Key{
 		Prefix: prefix,
 		rand:   rand,
 	}
@@ -202,8 +202,8 @@ type Share struct {
 
 func NewShare(store *Store) *Share {
 	prefix := NewPrefix(uint8(16), uint16(16))
-	
-	return &Share {
+
+	return &Share{
 		db:     store,
 		prefix: prefix,
 	}
@@ -237,7 +237,7 @@ func (s Share) Get(key *Key) (proto.Share, error) {
 		return ps, err
 	}
 	defer value.Free()
-	
+
 	buf, _, err := capn.ReadFromMemoryZeroCopy(value.Data())
 	if err != nil {
 		return ps, err

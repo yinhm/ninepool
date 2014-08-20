@@ -2,8 +2,8 @@ package stratum
 
 import (
 	"errors"
-	"github.com/golang/glog"
 	"fmt"
+	"github.com/golang/glog"
 	"net"
 	"sync"
 	"time"

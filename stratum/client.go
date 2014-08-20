@@ -59,7 +59,7 @@ func NewStratumClient() *StratumClient {
 func (c *StratumClient) Serve(conn io.ReadWriteCloser, errch chan error) {
 	c.endpoint = birpc.NewEndpoint(jsonmsg.NewCodec(conn), c.registry)
 	c.endpoint.Context = &ClientContext{
-		JobCh:      make(chan *Job, 1),
+		JobCh: make(chan *Job, 1),
 	}
 	go func() {
 		err := c.endpoint.Serve()

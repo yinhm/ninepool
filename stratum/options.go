@@ -11,7 +11,7 @@ type Options struct {
 
 func ParseCommandLine() (options Options, err error) {
 	flag.DurationVar(&options.SubscribeTimeout, "subscribeTimeout",
-			time.Duration(10)*time.Second, "Subscribe timeout")
+		time.Duration(10)*time.Second, "Subscribe timeout")
 	flag.Parse()
 	return options, nil
 }

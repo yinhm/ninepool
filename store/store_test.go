@@ -4,8 +4,8 @@ import (
 	"bytes"
 	capn "github.com/glycerine/go-capnproto"
 	. "github.com/smartystreets/goconvey/convey"
-	"github.com/yinhm/ninepool/store"
 	"github.com/yinhm/ninepool/proto"
+	"github.com/yinhm/ninepool/store"
 	"os"
 	"testing"
 )
