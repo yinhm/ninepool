@@ -7,7 +7,7 @@ $Go.package("proto");
 struct Prefix {
     app @0: UInt8;
     table @1: UInt16;
-    custom @2: Int32;
+    unixtime @2: Int32;
 }
 
 struct Share {

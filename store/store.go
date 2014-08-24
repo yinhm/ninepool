@@ -126,11 +126,11 @@ type Prefix struct {
 	// proto.Prefix are defined as following:
 	// - app: app id(max 255), <16 is reserved.
 	// - symbol: Predefined table id, <16 is reserved.
-	// - custom: 32 bits custom, unix time or some custom id
+	// - unixtime: 32bit unix time
 	// +----------+----------+----------+
 	// |  8bits   |  16bits  |  64bits  |
 	// +----------+----------+----------+
-	// |   app    |  table   |  custom  |
+	// |   app    |  table   | unixtime |
 	// +----------+----------+----------+
 	proto.Prefix
 }
@@ -170,8 +170,9 @@ func NewKey(prefix Prefix, unixnano int64) *Key {
 }
 
 func NewNanoKey(prefix Prefix) *Key {
-	unixnano := time.Now().UnixNano()
-	return NewKey(prefix, unixnano)
+	t := time.Now()
+	prefix.SetUnixtime(int32(t.Unix()))
+	return NewKey(prefix, t.UnixNano())
 }
 
 func (k *Key) Bytes() ([]byte, error) {

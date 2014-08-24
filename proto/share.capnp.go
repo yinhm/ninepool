@@ -17,8 +17,8 @@ func (s Prefix) App() uint8              { return C.Struct(s).Get8(0) }
 func (s Prefix) SetApp(v uint8)          { C.Struct(s).Set8(0, v) }
 func (s Prefix) Table() uint16           { return C.Struct(s).Get16(2) }
 func (s Prefix) SetTable(v uint16)       { C.Struct(s).Set16(2, v) }
-func (s Prefix) Custom() int32           { return int32(C.Struct(s).Get32(4)) }
-func (s Prefix) SetCustom(v int32)       { C.Struct(s).Set32(4, uint32(v)) }
+func (s Prefix) Unixtime() int32         { return int32(C.Struct(s).Get32(4)) }
+func (s Prefix) SetUnixtime(v int32)     { C.Struct(s).Set32(4, uint32(v)) }
 
 // capn.JSON_enabled == false so we stub MarshallJSON().
 func (s *Prefix) MarshalJSON() (bs []byte, err error) {
