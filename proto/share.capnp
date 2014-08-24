@@ -10,6 +10,17 @@ struct Prefix {
     unixtime @2: Int32;
 }
 
+struct Round {
+    roundId @0: Int64;
+    orderId @1: Int64;
+    userId @2: Int64;
+    createTime @3: Int64;
+    startTime @4: Int64;
+    stopTime @5: Int64;
+    mps @6: Int32;
+    ghs @7: Int32;
+}
+
 struct Share {
     username @0: Text;
     jobId @1: Text;

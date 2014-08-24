@@ -191,13 +191,72 @@ func (k *Key) Time() time.Time {
 	return time.Unix(0, k.unixnano)
 }
 
+type Round struct {
+	db     *Store
+	prefix *Prefix
+}
+
+func NewRound(store *Store) *Share {
+	prefix := NewPrefix(uint8(16), uint16(16))
+
+	return &Share{
+		db:     store,
+		prefix: prefix,
+	}
+}
+
+func (s Share) Put(pshare proto.Share) (*Key, error) {
+	pshare.SetCreated(time.Now().Unix())
+	key := NewNanoKey(*s.prefix)
+	buf := bytes.Buffer{}
+	pshare.Segment.WriteTo(&buf)
+
+	kb, err := key.Bytes()
+	if err != nil {
+		return key, err
+	}
+
+	err = s.db.Put(kb, buf.Bytes())
+	return key, err
+}
+
+func (s Share) Get(key *Key) (proto.Share, error) {
+	var ps proto.Share
+
+	bytes, err := key.Bytes()
+	if err != nil {
+		return ps, err
+	}
+
+	value, err := s.db.Get(bytes)
+	if err != nil {
+		return ps, err
+	}
+	defer value.Free()
+
+	buf, _, err := capn.ReadFromMemoryZeroCopy(value.Data())
+	if err != nil {
+		return ps, err
+	}
+
+	ps = proto.ReadRootShare(buf)
+	//log.Printf("%s", s.String(ps))
+	return ps, nil
+}
+
+func (s Share) String(ps proto.Share) string {
+	buf := bytes.Buffer{}
+	ps.Segment.WriteTo(&buf)
+	return hex.EncodeToString(buf.Bytes())
+}
+
 type Share struct {
 	db     *Store
 	prefix *Prefix
 }
 
 func NewShare(store *Store) *Share {
-	prefix := NewPrefix(uint8(16), uint16(16))
+	prefix := NewPrefix(uint8(17), uint16(17))
 
 	return &Share{
 		db:     store,

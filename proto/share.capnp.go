@@ -34,6 +34,40 @@ func (s Prefix_List) ToArray() []Prefix {
 	return *(*[]Prefix)(unsafe.Pointer(C.PointerList(s).ToArray()))
 }
 
+type Round C.Struct
+
+func NewRound(s *C.Segment) Round      { return Round(s.NewStruct(56, 0)) }
+func NewRootRound(s *C.Segment) Round  { return Round(s.NewRootStruct(56, 0)) }
+func ReadRootRound(s *C.Segment) Round { return Round(s.Root(0).ToStruct()) }
+func (s Round) RoundId() int64         { return int64(C.Struct(s).Get64(0)) }
+func (s Round) SetRoundId(v int64)     { C.Struct(s).Set64(0, uint64(v)) }
+func (s Round) OrderId() int64         { return int64(C.Struct(s).Get64(8)) }
+func (s Round) SetOrderId(v int64)     { C.Struct(s).Set64(8, uint64(v)) }
+func (s Round) UserId() int64          { return int64(C.Struct(s).Get64(16)) }
+func (s Round) SetUserId(v int64)      { C.Struct(s).Set64(16, uint64(v)) }
+func (s Round) CreateTime() int64      { return int64(C.Struct(s).Get64(24)) }
+func (s Round) SetCreateTime(v int64)  { C.Struct(s).Set64(24, uint64(v)) }
+func (s Round) StartTime() int64       { return int64(C.Struct(s).Get64(32)) }
+func (s Round) SetStartTime(v int64)   { C.Struct(s).Set64(32, uint64(v)) }
+func (s Round) StopTime() int64        { return int64(C.Struct(s).Get64(40)) }
+func (s Round) SetStopTime(v int64)    { C.Struct(s).Set64(40, uint64(v)) }
+func (s Round) Mps() int32             { return int32(C.Struct(s).Get32(48)) }
+func (s Round) SetMps(v int32)         { C.Struct(s).Set32(48, uint32(v)) }
+func (s Round) Ghs() int32             { return int32(C.Struct(s).Get32(52)) }
+func (s Round) SetGhs(v int32)         { C.Struct(s).Set32(52, uint32(v)) }
+
+// capn.JSON_enabled == false so we stub MarshallJSON().
+func (s *Round) MarshalJSON() (bs []byte, err error) {
+	return
+}
+
+type Round_List C.PointerList
+
+func NewRoundList(s *C.Segment, sz int) Round_List { return Round_List(s.NewCompositeList(56, 0, sz)) }
+func (s Round_List) Len() int                      { return C.PointerList(s).Len() }
+func (s Round_List) At(i int) Round                { return Round(C.PointerList(s).At(i).ToStruct()) }
+func (s Round_List) ToArray() []Round              { return *(*[]Round)(unsafe.Pointer(C.PointerList(s).ToArray())) }
+
 type Share C.Struct
 
 func NewShare(s *C.Segment) Share       { return Share(s.NewStruct(24, 8)) }
