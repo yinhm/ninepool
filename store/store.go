@@ -12,7 +12,6 @@ import (
 	rocksdb "github.com/tecbot/gorocksdb"
 	"github.com/yinhm/ninepool/proto"
 	"io"
-	"math/rand"
 	"time"
 	"unsafe"
 )
@@ -127,11 +126,11 @@ type Prefix struct {
 	// proto.Prefix are defined as following:
 	// - app: app id(max 255), <16 is reserved.
 	// - symbol: Predefined table id, <16 is reserved.
-	// - unixnano: the unixnano for the key
+	// - custom: 32 bits custom, unix time or some custom id
 	// +----------+----------+----------+
 	// |  8bits   |  16bits  |  64bits  |
 	// +----------+----------+----------+
-	// |   app    |  table   | unixnano |
+	// |   app    |  table   |  custom  |
 	// +----------+----------+----------+
 	proto.Prefix
 }
@@ -157,32 +156,28 @@ func (p *Prefix) WriteTo(w io.Writer) (int64, error) {
 	return p.Segment.WriteTo(w)
 }
 
-func (p *Prefix) Time() time.Time {
-	return time.Unix(0, p.Unixnano())
-}
-
-// prefix + rand 32bits form a key.
+// prefix + unixnano form a key.
 type Key struct {
 	Prefix
-	rand uint32
+	unixnano int64
 }
 
-func NewKey(prefix Prefix, rand uint32) *Key {
+func NewKey(prefix Prefix, unixnano int64) *Key {
 	return &Key{
-		Prefix: prefix,
-		rand:   rand,
+		Prefix:   prefix,
+		unixnano: unixnano,
 	}
 }
 
-func NewRandKey(prefix Prefix) *Key {
-	prefix.SetUnixnano(time.Now().UnixNano())
-	return NewKey(prefix, rand.Uint32())
+func NewNanoKey(prefix Prefix) *Key {
+	unixnano := time.Now().UnixNano()
+	return NewKey(prefix, unixnano)
 }
 
 func (k *Key) Bytes() ([]byte, error) {
 	buf := bytes.Buffer{}
 	k.WriteTo(&buf)
-	err := binary.Write(&buf, binary.LittleEndian, k.rand)
+	err := binary.Write(&buf, binary.LittleEndian, k.unixnano)
 	return buf.Bytes(), err
 }
 
@@ -192,7 +187,7 @@ func (k *Key) String() string {
 }
 
 func (k *Key) Time() time.Time {
-	return time.Unix(0, k.Unixnano())
+	return time.Unix(0, k.unixnano)
 }
 
 type Share struct {
@@ -211,7 +206,7 @@ func NewShare(store *Store) *Share {
 
 func (s Share) Put(pshare proto.Share) (*Key, error) {
 	pshare.SetCreated(time.Now().Unix())
-	key := NewRandKey(*s.prefix)
+	key := NewNanoKey(*s.prefix)
 	buf := bytes.Buffer{}
 	pshare.Segment.WriteTo(&buf)
 
